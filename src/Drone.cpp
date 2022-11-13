@@ -10,8 +10,12 @@
 
 // void Drone::test_reconnection() { charger->test_reconnection(); }
 
-void Drone::send_command(const std::string &cmd) {
+void Drone::send_command(const std::string &cmd, bool wait_for_response) {
     std::cout << "(Tello) command: " << cmd << std::endl;
+    if (!wait_for_response) {
+        tello_->SendCommand(cmd);
+        return;
+    }
 
     while (!tello_->SendCommandWithResponse(cmd)) {
         std::cout << "(Tello) failed, send again command: " << cmd << std::endl;
@@ -21,6 +25,17 @@ void Drone::send_command(const std::string &cmd) {
         sleep(7);
         auto height = tello_->GetHeightStatus();
         std::cout << "Height: " << height << std::endl;
+    }
+}
+
+void Drone::activate_drone() {
+    while (!tello_->Bind())
+        ;
+
+    while (!tello_->SendCommandWithResponse("command")) {
+        std::cout << "(Tello) failed, send again command \"command\""
+                  << std::endl;
+        usleep(200000);
     }
 }
 

@@ -21,8 +21,7 @@ class Drone {
     // Need to use this constructor for Charger
     Drone(const std::string &drone_name,
           const std::string &rpi_bluetooth_address)
-        :  // tello_(std::make_shared<ctello::Tello>()),
-          drone_name_(drone_name) {}
+        : tello_(std::make_shared<ctello::Tello>()), drone_name_(drone_name) {}
 
     Drone() : tello_(std::make_shared<ctello::Tello>()) {
         while (!tello_->Bind())
@@ -34,13 +33,14 @@ class Drone {
 
     int get_battery();
 
-    void send_command(const std::string &cmd);
+    void send_command(const std::string &cmd, bool wait_for_response = true);
 
     void tello_stream_on();
     void tello_stream_off();
 
     void turn_drone_on_and_connect(bool turn_on = true);
     void turn_drone_off();
+    void activate_drone();
 
     void testOnOff();
 
