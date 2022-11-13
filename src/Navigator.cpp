@@ -1,6 +1,7 @@
 #include "Navigator.h"
 
 #include <cmath>
+#include <iostream>
 #include <opencv2/core/types.hpp>
 #include <thread>
 #include <vector>
@@ -23,8 +24,9 @@ Navigator::~Navigator() {
 }
 
 void Navigator::align_destinations_and_pose() {
+    auto [R_align, mu_align] = SLAM.GetMap()->align_map();
+
     while (!close_navigation) {
-        auto [R_align, mu_align] = SLAM.GetMap()->align_map();
         for (cv::Point3f& d : destinations) {
             d = cv::Point3f(cv::Mat(R_align * (cv::Mat(d) - mu_align)));
         }
@@ -99,11 +101,12 @@ float Navigator::get_distance_to_destination(const cv::Point3f& p1,
 }
 
 void Navigator::rotate_to_relocalize() {
-    drone.send_command("rc 0 0 0 0");
+    drone.send_command("rc 0 0 0 0", false);
+    std::this_thread::sleep_for(1s);
     while (!pose_updated) {
         drone.send_command("cw 30");
 
-        std::this_thread::sleep_for(1s);
+        std::this_thread::sleep_for(3s);
     }
 }
 
@@ -124,7 +127,7 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f& destination) {
     while (ang_diff <= -180) ang_diff += 360;
 
     if (abs(ang_diff) > 8) {
-        drone.send_command("rc 0 0 0 0");
+        drone.send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(1s);
         if (ang_diff > 0)
             drone.send_command("cw " + std::to_string((int)ang_diff + 2));
@@ -152,12 +155,11 @@ bool Navigator::goto_next_destination() {
     while (get_distance_to_destination(get_last_location(), current_dest) >
            std::pow(0.15, 2)) {
         rotate_to_destination_angle(current_dest);
-        // while (!drone.send_command("rc 0 30 0 0")) *** ADD THIS ***
         drone.send_command("rc 0 30 0 0");
         pose_updated = false;
     }
 
-    drone.send_command("rc 0 0 0 0");
+    drone.send_command("rc 0 0 0 0", false);
     return true;
 }
 
@@ -165,7 +167,7 @@ void Navigator::start_slam() {}
 
 void Navigator::start_navigation() {
     drone.send_command("takeoff");
-    drone.send_command("up 55");
+    // drone.send_command("up 55");
 
     update_pose_thread = std::thread(&Navigator::update_pose, this);
     align_destinations_and_pose_thread =
