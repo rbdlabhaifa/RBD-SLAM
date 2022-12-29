@@ -1,4 +1,4 @@
-#include "Streamer.h"
+#include "streamer.hpp"
 
 #include <opencv2/imgproc.hpp>
 #include <thread>

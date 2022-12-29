@@ -7,8 +7,8 @@
 #include <thread>
 #include <vector>
 
-#include "Drone.h"
 #include "System.h"
+#include "drone.hpp"
 
 class Navigator {
     Drone& drone;

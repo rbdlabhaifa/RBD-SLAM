@@ -4,7 +4,7 @@
 #include <memory>
 #include <thread>
 
-#include "Drone.h"
+#include "drone.hpp"
 
 #define MAX_FRAMES_IN_QUEUE 1
 

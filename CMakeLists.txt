@@ -15,6 +15,7 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED)
 find_package(LEMON REQUIRED)
 find_package(OpenCV 3.0 REQUIRED)
+find_package(spdlog REQUIRED)
 
 # add_executable (example main.cpp) target_link_libraries (example
 # Eigen3::Eigen)
@@ -23,8 +24,8 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable(visualize main.cpp src/Streamer.cpp src/Navigator.cpp
-                         src/Drone.cpp)
+add_executable(visualize src/main2.cpp src/streamer.cc src/navigator.cc
+                         src/drone.cc)
 target_link_libraries(visualize PRIVATE ${PCL_LIBRARIES} Eigen3::Eigen)
 target_link_libraries(visualize PRIVATE ${LEMON_LIBRARIES})
 target_link_libraries(visualize PRIVATE ${OpenCV_LIBS} ${Boost_LIBRARIES})

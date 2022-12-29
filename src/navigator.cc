@@ -1,4 +1,4 @@
-#include "Navigator.h"
+#include "navigator.hpp"
 
 #include <cmath>
 #include <iostream>
@@ -6,7 +6,7 @@
 #include <thread>
 #include <vector>
 
-#include "Drone.h"
+#include "drone.hpp"
 
 Navigator::Navigator(
     Drone& drone, const std::vector<cv::Point3f>& destinations,
