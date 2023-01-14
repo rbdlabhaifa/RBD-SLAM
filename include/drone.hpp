@@ -23,10 +23,7 @@ class Drone {
           const std::string &rpi_bluetooth_address)
         : tello_(std::make_shared<ctello::Tello>()), drone_name_(drone_name) {}
 
-    Drone() : tello_(std::make_shared<ctello::Tello>()) {
-        while (!tello_->Bind())
-            ;
-    }
+    Drone() : tello_(std::make_shared<ctello::Tello>()) {}
 
     void update_pose(const cv::Mat &drone_pose);
     const cv::Mat &get_pose();

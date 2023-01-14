@@ -1,46 +1,62 @@
 #ifndef NAVIGATOR_H_
 #define NAVIGATOR_H_
 
+#include <atomic>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <cstddef>
+#include <memory>
 #include <opencv2/core/types.hpp>
 #include <thread>
 #include <vector>
 
 #include "System.h"
 #include "drone.hpp"
+#include "explorer.hpp"
 
 class Navigator {
-    Drone& drone;
+    std::shared_ptr<Drone> drone;
     std::vector<cv::Point3f> destinations;
-    boost::lockfree::spsc_queue<std::vector<uchar>>& frame_queue;
+    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue;
     ORB_SLAM2::System& SLAM;
+
     std::size_t current_destination = 0;
-    cv::Mat aligned_pose;
+
+    cv::Mat R_align, mu_align;
     cv::Mat Rwc;
-    bool pose_updated = false;
-    bool close_navigation = false;
+
+    std::atomic_bool pose_updated;
+    std::atomic_bool close_navigation;
 
     std::thread update_pose_thread;
-    std::thread align_destinations_and_pose_thread;
 
-    void start_slam();
-    void align_destinations_and_pose();
+    void align_pose();
+    void align_destinations();
     float get_distance_to_destination(const cv::Point3f& p1,
                                       const cv::Point3f& p2);
-    cv::Point3f get_last_location(bool check_update = true);
-    cv::Mat calc_aligned_pose(const cv::Mat& pose, const cv::Mat& R_align,
-                              const cv::Mat& mu_align);
-    cv::Point3f rotation_matrix_to_euler_angles(const cv::Mat& R);
+    cv::Point3f get_last_location();
+
+    std::vector<Eigen::Matrix<double, 3, 1>> get_points_from_slam();
+
+    static cv::Mat calc_aligned_pose(const cv::Mat& pose,
+                                     const cv::Mat& R_align,
+                                     const cv::Mat& mu_align);
+    static cv::Point3f rotation_matrix_to_euler_angles(const cv::Mat& R);
+
     void update_pose();
 
     void rotate_to_relocalize();
-    void rotate_to_destination_angle(const cv::Point3f& destination);
+    void rotate_to_destination_angle(const cv::Point3f& location,
+                                     const cv::Point3f& destination);
 
    public:
-    Navigator(Drone& drone, const std::vector<cv::Point3f>& destinations,
+    std::shared_ptr<Explorer> explorer;
+
+    Navigator(std::shared_ptr<Drone>,
+              const std::vector<cv::Point3f>& destinations,
               ORB_SLAM2::System& SLAM,
-              boost::lockfree::spsc_queue<std::vector<uchar>>& frame_queue);
+              boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
+                  frame_queue,
+              bool use_explorer = true);
     ~Navigator();
     void start_navigation();
     bool goto_next_destination();

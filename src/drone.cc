@@ -29,9 +29,6 @@ void Drone::send_command(const std::string &cmd, bool wait_for_response) {
 }
 
 void Drone::activate_drone() {
-    while (!tello_->Bind())
-        ;
-
     while (!tello_->SendCommandWithResponse("command")) {
         std::cout << "(Tello) failed, send again command \"command\""
                   << std::endl;

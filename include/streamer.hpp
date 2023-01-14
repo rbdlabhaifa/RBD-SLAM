@@ -1,28 +1,34 @@
 #ifndef STREAMER_H_
 #define STREAMER_H_
+#include <opencv2/core/hal/interface.h>
+
+#include <array>
+#include <atomic>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <memory>
 #include <thread>
 
 #include "drone.hpp"
 
-#define MAX_FRAMES_IN_QUEUE 1
+#define MAX_FRAMES_IN_QUEUE 3
 
 class Streamer {
-    Drone& drone;
+    std::shared_ptr<Drone> drone;
     std::thread image_thread;
     cv::VideoCapture capture;
-    boost::lockfree::spsc_queue<std::vector<uchar>> frame_queue;
+    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>> frame_queue;
 
-    bool close_stream = false;
+    std::atomic_bool close_stream;
     void grab_image();
 
    public:
-    Streamer(Drone& drone, const int max_frames_in_queue = MAX_FRAMES_IN_QUEUE);
+    Streamer(std::shared_ptr<Drone> drone = nullptr,
+             int max_frames_in_queue = MAX_FRAMES_IN_QUEUE);
     ~Streamer();
-    void start_drone_stream();
-    void end_drone_stream();
-    boost::lockfree::spsc_queue<std::vector<uchar>>& get_frame_queue();
+    void start_stream();
+    void end_stream();
+    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
+    get_frame_queue();
 };
 
 #endif  // STREAMER_H_

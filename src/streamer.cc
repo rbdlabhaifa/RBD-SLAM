@@ -1,45 +1,56 @@
 #include "streamer.hpp"
 
+#include <opencv2/core/hal/interface.h>
+
+#include <array>
+#include <memory>
 #include <opencv2/imgproc.hpp>
 #include <thread>
 
+#include "drone.hpp"
+
 using namespace std::chrono_literals;
 
-Streamer::Streamer(Drone& drone, const int max_frames_in_queue)
-    : drone(drone), frame_queue(max_frames_in_queue) {}
-Streamer::~Streamer() { end_drone_stream(); }
+Streamer::Streamer(std::shared_ptr<Drone> drone, int max_frames_in_queue)
+    : drone(drone), frame_queue(max_frames_in_queue), close_stream(false) {}
 
-boost::lockfree::spsc_queue<std::vector<uchar>>& Streamer::get_frame_queue() {
+Streamer::~Streamer() { end_stream(); }
+
+boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
+Streamer::get_frame_queue() {
     return frame_queue;
 }
 
 void Streamer::grab_image() {
     cv::Mat frame;
-    std::vector<uchar> frame_vec;
+    std::array<uchar, 640 * 480 * 3> frame_arr;
 
-    capture.open("udp://0.0.0.0:11111?overrun_nonfatal=1&fifo_size=5000");
+    if (drone == nullptr)
+        capture.open(0);
+    else
+        capture.open("udp://0.0.0.0:11111?overrun_nonfatal=1&fifo_size=5000");
 
     while (!close_stream) {
         if (!capture.isOpened()) break;  // TODO: add logging here
         capture.read(frame);
         cv::resize(frame, frame, cv::Size(640, 480));
-        frame_vec.assign(frame.data,
-                         frame.data + frame.total() * frame.channels());
+        std::move(frame.data, frame.data + frame.total() * frame.channels(),
+                  frame_arr.data());
 
-        frame_queue.push(frame_vec);
+        frame_queue.push(frame_arr);
     }
 
     capture.release();
-    drone.tello_stream_off();
+    if (!close_stream && drone != nullptr) drone->tello_stream_off();
 }
 
-void Streamer::start_drone_stream() {
-    drone.tello_stream_on();
+void Streamer::start_stream() {
+    if (drone != nullptr) drone->tello_stream_on();
     image_thread = std::thread(&Streamer::grab_image, this);
 }
 
-void Streamer::end_drone_stream() {
+void Streamer::end_stream() {
     close_stream = true;
     image_thread.join();
-    drone.send_command("streamoff");
+    if (drone != nullptr) drone->send_command("streamoff");
 }
