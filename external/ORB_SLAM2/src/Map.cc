@@ -21,6 +21,7 @@
 #include "Map.h"
 #define TEST_DATA 0xdeadbeef
 #include<mutex>
+#include <opencv2/core/core_c.h>
 namespace ORB_SLAM2
 {
 
