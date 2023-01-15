@@ -11,11 +11,13 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <opencv2/core/mat.hpp>
 #include <thread>
 #include <vector>
 
 #include "MapPoint.h"
+#include "drone.hpp"
 #include "streamer.hpp"
 
 #define DESTINATIONS_FILE_NAME "drone_destinations.txt"
@@ -65,30 +67,32 @@ void save_point_data(ORB_SLAM2::System& SLAM,
 
 int main(int argc, char** argv) {
     if (argc < 4) {
-        std::cerr << "USGAE: " << argv[0]
-                  << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH MAP_FILE "
-                     "[--continue]"
-                  << std::endl
-                  << std::endl
-                  << "In order to use `--continue`, put the corresponding "
-                     "MAP_FILE in the current folder"
+        std::cerr << "USAGE: " << argv[0]
+                  << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH "
+                     "[--continue MAP_FILE_PATH] [--use-webcam]"
                   << std::endl;
         return 1;
     }
 
     const bool reuse_map_file =
         argc >= 5 && std::string(argv[3]) == "--continue";
+    const bool use_webcam =
+        argc >= 3 &&
+        std::string(argv[reuse_map_file ? 5 : 3]) == "--use-webcam";
+
     const std::filesystem::path directory_named_time =
         create_new_directory_named_current_time();
 
     const std::filesystem::path SLAM_map_location =
-        !reuse_map_file ? directory_named_time / "SLAM_map.bin"
-                        : "SLAM_map.bin";
+        !reuse_map_file ? directory_named_time / "SLAM_map.bin" : argv[4];
 
     ORB_SLAM2::System SLAM(argv[1], argv[2], ORB_SLAM2::System::MONOCULAR, true,
                            reuse_map_file, SLAM_map_location, reuse_map_file);
-    // Drone drone;
-    Streamer streamer;
+
+    std::shared_ptr<Drone> drone =
+        use_webcam ? nullptr : std::make_shared<Drone>();
+
+    Streamer streamer(drone);
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue =
         streamer.get_frame_queue();
 
@@ -111,7 +115,7 @@ int main(int argc, char** argv) {
     save_point_data(SLAM, directory_named_time);
     std::filesystem::rename(DESTINATIONS_FILE_NAME,
                             directory_named_time / DESTINATIONS_FILE_NAME);
-    SLAM.SaveMap(SLAM_map_location);
+    SLAM.SaveMap(directory_named_time / "SLAM_map.bin");
     cvDestroyAllWindows();
 
     return 0;

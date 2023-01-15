@@ -2,6 +2,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -17,7 +18,7 @@
 using namespace std::chrono_literals;
 
 std::vector<cv::Point3f> read_drone_destinations(
-    const std::string &destinations_file_path) {
+    const std::filesystem::path& destinations_file_path) {
     std::vector<cv::Point3f> destinations;
     std::ifstream fin(destinations_file_path);
 
@@ -41,19 +42,25 @@ std::vector<cv::Point3f> read_drone_destinations(
     return destinations;
 }
 
-int main(int argc, char *argv[]) {
-    std::vector<cv::Point3f> destinations =
-        read_drone_destinations("drone_destinations.txt");
+int main(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "USAGE: " << argv[0]
+                  << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH "
+                     "MAP_FILE_PATH DRONE_DESTINATIONS_FILE_PATH"
+                  << std::endl;
+        return 1;
+    }
 
-    std::shared_ptr<Drone> drone = std::make_shared<Drone>(argv[2], "");
+    const std::vector<cv::Point3f> destinations =
+        read_drone_destinations(std::filesystem::path(argv[4]));
+
+    std::shared_ptr<Drone> drone = std::make_shared<Drone>();
     drone->activate_drone();
 
     Streamer streamer(drone);
 
-    std::string vocabulary_path = "Configuration/Vocabulary/ORBvoc.txt";
-    ORB_SLAM2::System SLAM(vocabulary_path, argv[1],
-                           ORB_SLAM2::System::MONOCULAR, true, true,
-                           "Slam_latest_Map.bin");
+    ORB_SLAM2::System SLAM(argv[1], argv[2], ORB_SLAM2::System::MONOCULAR, true,
+                           true, argv[3]);
 
     Navigator navigator(drone, destinations, SLAM, streamer.get_frame_queue());
     streamer.start_stream();
