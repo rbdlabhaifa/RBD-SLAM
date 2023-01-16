@@ -31,12 +31,18 @@ class Navigator {
 
     void align_pose();
     void align_destinations();
-    float get_distance_to_destination(const cv::Point3f& p1,
-                                      const cv::Point3f& p2);
+
+    /**
+     * @brief Attempt to get the last location relative to the
+     * SLAM map, rotating the drone if not localized
+     * @returns drone's last location relative to the SLAM map
+     */
     cv::Point3f get_last_location();
 
     std::vector<Eigen::Matrix<double, 3, 1>> get_points_from_slam();
 
+    static float get_distance_to_destination(const cv::Point3f& p1,
+                                             const cv::Point3f& p2);
     static cv::Mat calc_aligned_pose(const cv::Mat& pose,
                                      const cv::Mat& R_align,
                                      const cv::Mat& mu_align);
@@ -44,6 +50,9 @@ class Navigator {
 
     void update_pose();
 
+    /**
+     * @brief Rotate the drone until it's caught features
+     */
     void rotate_to_relocalize();
     void rotate_to_destination_angle(const cv::Point3f& location,
                                      const cv::Point3f& destination);

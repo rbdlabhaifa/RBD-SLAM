@@ -44,10 +44,8 @@ void save_point_data(ORB_SLAM2::System& SLAM,
     const std::vector<ORB_SLAM2::MapPoint*> map_points =
         SLAM.GetMap()->GetAllMapPoints();
 
-    std::ofstream point_data;
+    std::ofstream point_data(point_data_csv_path);
     std::ofstream point_data_xyz(point_data_xyz_path);
-
-    point_data.open(point_data_csv_path);
 
     for (auto p : map_points) {
         if (p != nullptr) {
