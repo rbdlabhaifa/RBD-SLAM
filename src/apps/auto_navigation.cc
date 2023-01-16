@@ -66,8 +66,14 @@ int main(int argc, char* argv[]) {
     streamer.start_stream();
     navigator.start_navigation();
 
-    // while (navigator.goto_next_destination())
-    //     std::cout << "Reached destination!" << std::endl;
+    navigator.update_plane_of_flight();
+
+    while (navigator.goto_next_destination())
+        std::cout << "Reached destination!" << std::endl;
+
+    if (!navigator.goto_the_unknown())
+        std::cout << "Couldn't find a path to the unknown";
+
     std::this_thread::sleep_for(3min);
 
     std::cout << "Reached all destinations" << std::endl;

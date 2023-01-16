@@ -67,8 +67,11 @@ class Navigator {
                   frame_queue,
               bool use_explorer = true);
     ~Navigator();
+
     void start_navigation();
     bool goto_next_destination();
+    bool goto_the_unknown();
+    void update_plane_of_flight();
 };
 
 #endif  // NAVIGATOR_H_

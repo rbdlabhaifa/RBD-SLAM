@@ -188,9 +188,40 @@ bool Navigator::goto_next_destination() {
     return true;
 }
 
+void Navigator::update_plane_of_flight() {
+    // TODO: some dance to get 3 points to set the plane
+
+    pcl::PointXYZ trash_point;
+    explorer->set_plane_of_flight(trash_point, trash_point, trash_point);
+}
+
+bool Navigator::goto_the_unknown() {
+    if (!explorer->is_set_plane_of_flight()) update_plane_of_flight();
+
+    cv::Point3f last_location = get_last_location();
+    const std::vector<pcl::PointXYZ> path_to_the_unknown =
+        explorer->get_points_to_unknown(
+            pcl::PointXYZ(last_location.x, last_location.y, last_location.z));
+
+    if (path_to_the_unknown.size() < 10) return false;
+
+    for (auto p : path_to_the_unknown) {
+        const cv::Point3f p_cv(p.x, p.y, p.z);
+
+        while (get_distance_to_destination(last_location = get_last_location(),
+                                           p_cv) > std::pow(0.15, 2)) {
+            rotate_to_destination_angle(last_location, p_cv);
+            drone->send_command("rc 0 30 0 0");
+            pose_updated = false;
+        }
+    }
+
+    return true;
+}
+
 void Navigator::start_navigation() {
-    // drone->send_command("takeoff");
-    // drone->send_command("up 55");
+    drone->send_command("takeoff");
+    drone->send_command("up 55");
 
     auto [R_align, mu_align] = SLAM.GetMap()->align_map();
     this->R_align = R_align;
