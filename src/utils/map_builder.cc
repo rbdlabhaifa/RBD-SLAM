@@ -9,7 +9,6 @@
 #include <boost/lockfree/spsc_queue.hpp>
 #include <chrono>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <opencv2/core/mat.hpp>
@@ -64,7 +63,7 @@ void save_point_data(ORB_SLAM2::System& SLAM,
 }
 
 int main(int argc, char** argv) {
-    if (argc < 4) {
+    if (argc < 3) {
         std::cerr << "USAGE: " << argv[0]
                   << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH "
                      "[--continue MAP_FILE_PATH] [--use-webcam]"
@@ -75,7 +74,7 @@ int main(int argc, char** argv) {
     const bool reuse_map_file =
         argc >= 5 && std::string(argv[3]) == "--continue";
     const bool use_webcam =
-        argc >= 3 &&
+        argc >= 4 &&
         std::string(argv[reuse_map_file ? 5 : 3]) == "--use-webcam";
 
     const std::filesystem::path directory_named_time =

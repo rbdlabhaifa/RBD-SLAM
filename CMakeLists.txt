@@ -48,3 +48,7 @@ add_executable(map_builder src/utils/map_builder.cc)
 target_link_libraries(map_builder PRIVATE ORB_SLAM2 ${OpenCV_LIBS}
                                           ${Boost_LIBRARIES} tello_stream)
 target_include_directories(map_builder PRIVATE include)
+
+add_executable(show_rrt src/utils/show_rrt.cc)
+target_link_libraries(show_rrt PRIVATE ${PCL_LIBRARIES} path_builder)
+target_include_directories(show_rrt PRIVATE include)

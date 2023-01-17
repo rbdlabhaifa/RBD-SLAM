@@ -4,6 +4,7 @@
 #include <atomic>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <opencv2/core/types.hpp>
 #include <thread>
@@ -18,8 +19,11 @@ class Navigator {
     std::vector<cv::Point3f> destinations;
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue;
     ORB_SLAM2::System& SLAM;
+    std::filesystem::path data_dir;
 
     std::size_t current_destination = 0;
+
+    std::size_t paths_created = 0;
 
     cv::Mat R_align, mu_align;
     cv::Mat Rwc;
@@ -65,6 +69,7 @@ class Navigator {
               ORB_SLAM2::System& SLAM,
               boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
                   frame_queue,
+              const std::filesystem::path& data_dir = ".",
               bool use_explorer = true);
     ~Navigator();
 

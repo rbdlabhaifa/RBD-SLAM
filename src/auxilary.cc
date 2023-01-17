@@ -1,6 +1,8 @@
 #include "auxilary.hpp"
 
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <random>
 #include <vector>
 
@@ -104,6 +106,39 @@ namespace Auxilary {
         return pcl::PointXYZ(v_a.y * v_b.z - v_a.z * v_b.y,
                              -(v_a.x * v_b.z - v_a.z * v_b.x),
                              v_a.x * v_b.y - v_a.y * v_b.x);
+    }
+
+    std::vector<pcl::PointXYZ> load_path_from_file(
+        const std::filesystem::path& location_file_path) {
+        std::vector<pcl::PointXYZ> path_to_unknown;
+
+        std::ifstream fin(location_file_path);
+
+        std::vector<float> values;
+        if (fin.good()) {
+            float value = 0;
+            while (fin >> value) {
+                values.push_back(value);
+                if (values.size() == 3) {
+                    path_to_unknown.emplace_back(values[0], values[1],
+                                                 values[2]);
+                    values.clear();
+                }
+            }
+        }
+
+        return path_to_unknown;
+    }
+
+    void save_path_to_file(const std::vector<pcl::PointXYZ>& path,
+                           const std::filesystem::path& location_file_path) {
+        std::ofstream file_of_path(location_file_path);
+
+        for (auto point : path)
+            file_of_path << point.x << " " << point.y << " " << point.z
+                         << std::endl;
+
+        file_of_path.close();
     }
 
 }  // namespace Auxilary

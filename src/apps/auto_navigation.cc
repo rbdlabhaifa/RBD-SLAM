@@ -17,6 +17,17 @@
 
 using namespace std::chrono_literals;
 
+std::filesystem::path create_new_directory_named_current_time() {
+    // TODO: Maybe change the time format
+    time_t now = time(0);
+    std::string current_time = std::string(ctime(&now));
+    current_time.pop_back();
+    const std::filesystem::path directory_named_time = current_time;
+
+    std::filesystem::create_directories(directory_named_time);
+    return directory_named_time;
+}
+
 std::vector<cv::Point3f> read_drone_destinations(
     const std::filesystem::path& destinations_file_path) {
     std::vector<cv::Point3f> destinations;
@@ -26,7 +37,6 @@ std::vector<cv::Point3f> read_drone_destinations(
 
     std::vector<float> values;
     if (fin.good()) {
-        std::string param_name;
         float value = 0;
         while (fin >> value) {
             values.push_back(value);
@@ -62,19 +72,22 @@ int main(int argc, char* argv[]) {
     ORB_SLAM2::System SLAM(argv[1], argv[2], ORB_SLAM2::System::MONOCULAR, true,
                            true, argv[3]);
 
-    Navigator navigator(drone, destinations, SLAM, streamer.get_frame_queue());
+    const std::filesystem::path data_dir =
+        create_new_directory_named_current_time();
+    Navigator navigator(drone, destinations, SLAM, streamer.get_frame_queue(),
+                        data_dir);
+    std::cout << "Saving data to " << data_dir << std::endl;
+
     streamer.start_stream();
     navigator.start_navigation();
 
-    navigator.update_plane_of_flight();
+    // navigator.update_plane_of_flight();
 
     while (navigator.goto_next_destination())
         std::cout << "Reached destination!" << std::endl;
 
     if (!navigator.goto_the_unknown())
         std::cout << "Couldn't find a path to the unknown";
-
-    std::this_thread::sleep_for(3min);
 
     std::cout << "Reached all destinations" << std::endl;
 

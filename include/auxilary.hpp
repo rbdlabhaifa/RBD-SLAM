@@ -4,6 +4,7 @@
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/point_cloud.h>
 
+#include <filesystem>
 #include <pcl/impl/point_types.hpp>
 #include <vector>
 
@@ -83,6 +84,11 @@ namespace Auxilary {
 
     pcl::PointXYZ cross_product(const pcl::PointXYZ& v_a,
                                 const pcl::PointXYZ& v_b);
+
+    void save_path_to_file(const std::vector<pcl::PointXYZ>& path,
+                           const std::filesystem::path& location_file_path);
+    std::vector<pcl::PointXYZ> load_path_from_file(
+        const std::filesystem::path& location_file_path);
 }  // namespace Auxilary
 
 #endif  // AUXILARY_H_

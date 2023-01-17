@@ -4,14 +4,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
+#include <string>
 #include <thread>
 #include <vector>
 
+#include "auxilary.hpp"
 #include "drone.hpp"
 #include "explorer.hpp"
 
@@ -19,12 +22,13 @@ Navigator::Navigator(
     std::shared_ptr<Drone> drone, const std::vector<cv::Point3f>& destinations,
     ORB_SLAM2::System& SLAM,
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue,
-    bool use_explorer)
+    const std::filesystem::path& data_dir, bool use_explorer)
     : drone(drone),
       destinations(destinations),
       SLAM(SLAM),
       frame_queue(frame_queue),
       pose_updated(false),
+      data_dir(data_dir),
       close_navigation(false) {
     if (use_explorer)
         explorer = std::make_shared<Explorer>(get_points_from_slam());
@@ -53,9 +57,9 @@ std::vector<Eigen::Matrix<double, 3, 1>> Navigator::get_points_from_slam() {
 }
 
 void Navigator::align_destinations() {
-    for (cv::Point3f& d : destinations) {
+    std::for_each(destinations.begin(), destinations.end(), [&](auto& d) {
         d = cv::Point3f(cv::Mat(R_align * (cv::Mat(d) - mu_align)));
-    }
+    });
 }
 
 cv::Mat Navigator::calc_aligned_pose(const cv::Mat& pose,
@@ -103,16 +107,15 @@ void Navigator::update_pose() {
     std::array<uchar, 640 * 480 * 3> current_frame;
     while (!close_navigation) {
         while (!frame_queue.pop(current_frame)) {
-            std::this_thread::sleep_for(10ms);
+            std::this_thread::sleep_for(2ms);
             continue;
         }
 
         ++frame_cnt;
-        if (!pose_updated) {
-            drone->update_pose(SLAM.TrackMonocular(
-                cv::Mat(480, 640, CV_8UC3, current_frame.data()), frame_cnt));
-            pose_updated = !drone->get_pose().empty();
-        }
+        // TODO: this is not thread safe!
+        drone->update_pose(SLAM.TrackMonocular(
+            cv::Mat(480, 640, CV_8UC3, current_frame.data()), frame_cnt));
+        pose_updated = !drone->get_pose().empty();
     }
 }
 
@@ -137,11 +140,11 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f& location,
                                             const cv::Point3f& destination) {
     // Get angle from Rwc
     cv::Point3f angles = rotation_matrix_to_euler_angles(Rwc);
-    float angle1 = angles.z;
+    float angle1 = angles.z + 90;
 
     cv::Point2f vec1(destination.x - location.x, destination.y - location.y);
     // Get angle from vec1
-    float angle2 = (std::atan2(vec1.y, vec1.x) * 180 / M_PI) + 90;
+    float angle2 = std::atan2(vec1.y, vec1.x) * 180 / M_PI;
 
     float ang_diff = angle1 - angle2;
     while (ang_diff > 180) ang_diff -= 360;
@@ -180,19 +183,26 @@ bool Navigator::goto_next_destination() {
     while (get_distance_to_destination(last_location = get_last_location(),
                                        current_dest) > std::pow(0.15, 2)) {
         rotate_to_destination_angle(last_location, current_dest);
-        drone->send_command("rc 0 30 0 0");
-        pose_updated = false;
+        std::this_thread::sleep_for(2s);
+        if (pose_updated) {
+            drone->send_command("rc 0 30 0 0", false);
+            pose_updated = false;
+            std::this_thread::sleep_for(1s);
+        }
     }
 
     drone->send_command("rc 0 0 0 0", false);
+    ++current_destination;
     return true;
 }
 
 void Navigator::update_plane_of_flight() {
-    // TODO: some dance to get 3 points to set the plane
+    // TODO: some dance to dynamically update the plane of flight
 
-    pcl::PointXYZ trash_point;
-    explorer->set_plane_of_flight(trash_point, trash_point, trash_point);
+    pcl::PointXYZ p1(destinations[0].x, destinations[0].y, destinations[0].z);
+    pcl::PointXYZ p2(destinations[1].x, destinations[1].y, destinations[1].z);
+    pcl::PointXYZ p3(destinations[2].x, destinations[2].y, destinations[2].z);
+    explorer->set_plane_of_flight(p1, p2, p3);
 }
 
 bool Navigator::goto_the_unknown() {
@@ -205,29 +215,30 @@ bool Navigator::goto_the_unknown() {
 
     if (path_to_the_unknown.size() < 10) return false;
 
-    for (auto p : path_to_the_unknown) {
-        const cv::Point3f p_cv(p.x, p.y, p.z);
+    Auxilary::save_path_to_file(
+        path_to_the_unknown,
+        data_dir / std::filesystem::path(
+                       "path" + std::to_string(++paths_created) + ".xyz"));
 
-        while (get_distance_to_destination(last_location = get_last_location(),
-                                           p_cv) > std::pow(0.15, 2)) {
-            rotate_to_destination_angle(last_location, p_cv);
-            drone->send_command("rc 0 30 0 0");
-            pose_updated = false;
-        }
-    }
+    std::for_each(
+        path_to_the_unknown.begin(), path_to_the_unknown.end(),
+        [&](auto p) { destinations.push_back(cv::Point3f(p.x, p.y, p.z)); });
+
+    while (goto_next_destination())
+        std::cout << "Reached a point in the path to the unknown!" << std::endl;
 
     return true;
 }
 
 void Navigator::start_navigation() {
-    drone->send_command("takeoff");
-    drone->send_command("up 55");
-
     auto [R_align, mu_align] = SLAM.GetMap()->align_map();
     this->R_align = R_align;
     this->mu_align = mu_align;
-
     align_destinations();
+    update_plane_of_flight();
+
+    drone->send_command("takeoff");
+    drone->send_command("up 55");
 
     update_pose_thread = std::thread(&Navigator::update_pose, this);
 }
