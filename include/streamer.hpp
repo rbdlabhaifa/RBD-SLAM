@@ -15,7 +15,6 @@
 class Streamer {
     std::shared_ptr<Drone> drone;
     std::thread image_thread;
-    cv::VideoCapture capture;
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>> frame_queue;
 
     std::atomic_bool close_stream;

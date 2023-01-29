@@ -87,6 +87,9 @@ namespace Auxilary {
 
     void save_path_to_file(const std::vector<pcl::PointXYZ>& path,
                            const std::filesystem::path& location_file_path);
+    void save_points_to_file(
+        const std::vector<Eigen::Matrix<double, 3, 1>>& points,
+        const std::filesystem::path& location_file_path);
     std::vector<pcl::PointXYZ> load_path_from_file(
         const std::filesystem::path& location_file_path);
 }  // namespace Auxilary

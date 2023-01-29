@@ -14,6 +14,7 @@
 #include <thread>
 #include <vector>
 
+#include "Converter.h"
 #include "auxilary.hpp"
 #include "drone.hpp"
 #include "explorer.hpp"
@@ -30,8 +31,14 @@ Navigator::Navigator(
       pose_updated(false),
       data_dir(data_dir),
       close_navigation(false) {
-    if (use_explorer)
-        explorer = std::make_shared<Explorer>(get_points_from_slam());
+    auto [R_align, mu_align] = SLAM.GetMap()->align_map();
+    this->R_align = R_align;
+    this->mu_align = mu_align;
+
+    const auto slam_points = get_points_from_slam();
+    if (use_explorer) explorer = std::make_shared<Explorer>(slam_points);
+
+    Auxilary::save_points_to_file(slam_points, data_dir / "aligned_points.xyz");
 }
 
 Navigator::~Navigator() {
@@ -49,17 +56,18 @@ std::vector<Eigen::Matrix<double, 3, 1>> Navigator::get_points_from_slam() {
 
     std::transform(
         map_points.begin(), map_points.end(), std::back_inserter(points),
-        [](auto p) {
-            return ORB_SLAM2::Converter::toVector3d(p->GetWorldPos());
+        [&](auto p) {
+            return ORB_SLAM2::Converter::toVector3d(calc_aligned_point(
+                cv::Point3f(p->GetWorldPos()), R_align, mu_align));
         });
 
     return points;
 }
 
-void Navigator::align_destinations() {
-    std::for_each(destinations.begin(), destinations.end(), [&](auto& d) {
-        d = cv::Point3f(cv::Mat(R_align * (cv::Mat(d) - mu_align)));
-    });
+cv::Point3f Navigator::calc_aligned_point(const cv::Point3f& point,
+                                          const cv::Mat& R_align,
+                                          const cv::Mat& mu_align) {
+    return cv::Point3f(cv::Mat(R_align * (cv::Mat(point) - mu_align)));
 }
 
 cv::Mat Navigator::calc_aligned_pose(const cv::Mat& pose,
@@ -113,9 +121,13 @@ void Navigator::update_pose() {
 
         ++frame_cnt;
         // TODO: this is not thread safe!
-        drone->update_pose(SLAM.TrackMonocular(
-            cv::Mat(480, 640, CV_8UC3, current_frame.data()), frame_cnt));
-        pose_updated = !drone->get_pose().empty();
+        const cv::Mat current_pose = SLAM.TrackMonocular(
+            cv::Mat(480, 640, CV_8UC3, current_frame.data()), frame_cnt);
+
+        if (!pose_updated) {
+            drone->update_pose(current_pose);
+            pose_updated = !current_pose.empty();
+        }
     }
 }
 
@@ -217,12 +229,10 @@ bool Navigator::goto_the_unknown() {
 
     Auxilary::save_path_to_file(
         path_to_the_unknown,
-        data_dir / std::filesystem::path(
-                       "path" + std::to_string(++paths_created) + ".xyz"));
+        data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
 
-    std::for_each(
-        path_to_the_unknown.begin(), path_to_the_unknown.end(),
-        [&](auto p) { destinations.push_back(cv::Point3f(p.x, p.y, p.z)); });
+    std::for_each(path_to_the_unknown.begin(), path_to_the_unknown.end(),
+                  [&](auto p) { destinations.emplace_back(p.x, p.y, p.z); });
 
     while (goto_next_destination())
         std::cout << "Reached a point in the path to the unknown!" << std::endl;
@@ -231,10 +241,10 @@ bool Navigator::goto_the_unknown() {
 }
 
 void Navigator::start_navigation() {
-    auto [R_align, mu_align] = SLAM.GetMap()->align_map();
-    this->R_align = R_align;
-    this->mu_align = mu_align;
-    align_destinations();
+    std::transform(
+        destinations.begin(), destinations.end(), destinations.begin(),
+        [&](auto p) { return calc_aligned_point(p, R_align, mu_align); });
+
     update_plane_of_flight();
 
     drone->send_command("takeoff");

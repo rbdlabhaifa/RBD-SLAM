@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <thread>
 #include <vector>
@@ -34,7 +35,6 @@ class Navigator {
     std::thread update_pose_thread;
 
     void align_pose();
-    void align_destinations();
 
     /**
      * @brief Attempt to get the last location relative to the
@@ -50,6 +50,9 @@ class Navigator {
     static cv::Mat calc_aligned_pose(const cv::Mat& pose,
                                      const cv::Mat& R_align,
                                      const cv::Mat& mu_align);
+    static cv::Point3f calc_aligned_point(const cv::Point3f& point,
+                                          const cv::Mat& R_align,
+                                          const cv::Mat& mu_align);
     static cv::Point3f rotation_matrix_to_euler_angles(const cv::Mat& R);
 
     void update_pose();

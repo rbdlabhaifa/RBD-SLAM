@@ -1,16 +1,16 @@
 #include "auxilary.hpp"
 #include "path_builder.hpp"
-//#include "lemon/core.h"
-//#include <chrono>
-//#include <fstream>
-//#include <iostream>
-//#include <lemon/bfs.h>
-//#include <lemon/list_graph.h>
-//#include <lemon/maps.h>
-//#include <list>
-//#include <pcl/common/common_headers.h>
-//#include <pcl/console/parse.h>
-//#include <pcl/features/normal_3d.h>
+// #include "lemon/core.h"
+// #include <chrono>
+// #include <fstream>
+// #include <iostream>
+// #include <lemon/bfs.h>
+// #include <lemon/list_graph.h>
+// #include <lemon/maps.h>
+// #include <list>
+// #include <pcl/common/common_headers.h>
+// #include <pcl/console/parse.h>
+// #include <pcl/features/normal_3d.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
@@ -354,9 +354,9 @@ int main(int argc, char **argv) {  // TODO : Redo the point Enter !!!
     }
     std::vector<pcl::PointXYZ> path_to_the_unknown_test;
     float ScaleFactor = 0.2;
-    std::cout << "SHOWING" << std::endl;
+
     visualizer_cloud_and_path(cloud, ScaleFactor,
-                              load_path_from_file("path.xyz"));
+                              load_path_from_file("path1.xyz"));
 
     // Testing !!
     path_to_the_unknown_test.push_back(StartPoint);

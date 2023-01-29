@@ -5,6 +5,7 @@
 #include <array>
 #include <memory>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/videoio.hpp>
 #include <thread>
 
 #include "drone.hpp"
@@ -24,6 +25,7 @@ Streamer::get_frame_queue() {
 void Streamer::grab_image() {
     cv::Mat frame;
     std::array<uchar, 640 * 480 * 3> frame_arr;
+    cv::VideoCapture capture;
 
     if (drone == nullptr)
         capture.open(0);
