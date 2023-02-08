@@ -3,23 +3,32 @@
 
 #include <atomic>
 #include <boost/lockfree/spsc_queue.hpp>
+#include <condition_variable>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <thread>
+#include <utility>
 #include <vector>
 
+#include "MapPoint.h"
 #include "System.h"
+#include "Viewer.h"
 #include "drone.hpp"
 #include "explorer.hpp"
+#include "sophus/se3.hpp"
 
 class Navigator {
-    std::shared_ptr<Drone> drone;
+    std::shared_ptr<SomeDrone> drone;
     std::vector<cv::Point3f> destinations;
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue;
-    ORB_SLAM2::System& SLAM;
+    std::unique_ptr<ORB_SLAM3::System> SLAM;
+    std::string vocabulary_file_path;
+    std::string calibration_file_path;
+    std::string map_file_path;
     std::filesystem::path data_dir;
 
     std::size_t current_destination = 0;
@@ -29,10 +38,15 @@ class Navigator {
     cv::Mat R_align, mu_align;
     cv::Mat Rwc;
 
+    std::atomic_bool started_navigation;
     std::atomic_bool pose_updated;
     std::atomic_bool close_navigation;
+    bool save_pose = false;
 
     std::thread update_pose_thread;
+
+    std::condition_variable cv;
+    std::mutex cv_m;
 
     void align_pose();
 
@@ -54,6 +68,10 @@ class Navigator {
                                           const cv::Mat& R_align,
                                           const cv::Mat& mu_align);
     static cv::Point3f rotation_matrix_to_euler_angles(const cv::Mat& R);
+    static cv::Mat sophus_to_cv(const Sophus::SE3f& pose);
+
+    static std::pair<cv::Mat, cv::Mat> get_alignment_matrices(
+        const std::vector<ORB_SLAM3::MapPoint*>& map_points);
 
     void update_pose();
 
@@ -67,16 +85,17 @@ class Navigator {
    public:
     std::shared_ptr<Explorer> explorer;
 
-    Navigator(std::shared_ptr<Drone>,
+    Navigator(std::shared_ptr<SomeDrone>,
               const std::vector<cv::Point3f>& destinations,
-              ORB_SLAM2::System& SLAM,
+              const std::string& vocabulary_file_path,
+              const std::string& calibration_file_path,
+              const std::string& map_file_path,
               boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
                   frame_queue,
-              const std::filesystem::path& data_dir = ".",
-              bool use_explorer = true);
+              const std::filesystem::path& data_dir = ".");
     ~Navigator();
 
-    void start_navigation();
+    void start_navigation(bool use_explorer = true);
     bool goto_next_destination();
     bool goto_the_unknown();
     void update_plane_of_flight();

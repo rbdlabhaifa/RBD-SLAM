@@ -11,9 +11,12 @@
 // #include <pcl/common/common_headers.h>
 // #include <pcl/console/parse.h>
 // #include <pcl/features/normal_3d.h>
+#include <opencv2/core/hal/interface.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
 #include <random>
 #include <sstream>
 #include <thread>
@@ -354,6 +357,58 @@ int main(int argc, char **argv) {  // TODO : Redo the point Enter !!!
     }
     std::vector<pcl::PointXYZ> path_to_the_unknown_test;
     float ScaleFactor = 0.2;
+
+    std::vector<pcl::PointXYZ> temp;
+
+    cv::Mat m(3, 3, CV_64F);
+    m.at<double>(0, 0) = 0.999997;
+    m.at<double>(0, 1) = 0.00247097;
+    m.at<double>(0, 2) = -1.6997e-05;
+    m.at<double>(1, 0) = -0.00246514;
+    m.at<double>(1, 1) = 0.998064;
+    m.at<double>(1, 2) = 0.0621534;
+    m.at<double>(2, 0) = 0.000170543;
+    m.at<double>(2, 1) = -0.0621531;
+    m.at<double>(2, 2) = 0.998067;
+
+    cv::Mat m2(3, 3, CV_64F);
+    m2.at<double>(0, 0) = 0.997279;
+    m2.at<double>(0, 1) = 0.013281;
+    m2.at<double>(0, 2) = 0.0725108;
+    m2.at<double>(1, 0) = -0.0182829;
+    m2.at<double>(1, 1) = 0.997466;
+    m2.at<double>(1, 2) = 0.0687598;
+    m2.at<double>(2, 0) = -0.0714139;
+    m2.at<double>(2, 1) = -0.0698984;
+    m2.at<double>(2, 2) = 0.994995;
+
+    cv::Mat p(cv::Point3d(-0.0432769, -0.196786, 1.41927));
+    p = -m.t() * p;
+
+    cv::Mat p2(cv::Point3d(0.0902055, -0.00587087, 0.268348));
+    p2 = -m2.t() * p2;
+
+    std::cout << p.at<double>(0, 0) << " " << p.at<double>(0, 1) << " "
+              << p.at<double>(0, 2) << std::endl;
+    std::cout << p2.at<double>(0, 0) << " " << p2.at<double>(0, 1) << " "
+              << p2.at<double>(0, 2) << std::endl;
+    // temp.emplace_back(p.at<double>(0, 0), p.at<double>(0, 1),
+    //                   p.at<double>(0, 2));
+    // temp.emplace_back(p2.at<double>(0, 0), p2.at<double>(0, 1),
+    //                   p2.at<double>(0, 2));
+
+    // temp.emplace_back(0.3201606029021066, -0.01072179706351756,
+    //                   0.1273295167572735);
+    temp.emplace_back(0.17751843, -0.14754228, 0.75994327);
+
+    // visualizer_cloud_and_path(cloud, ScaleFactor,
+    //                           load_path_from_file("path1.xyz"));
+    visualizer_cloud_and_path(cloud, ScaleFactor, temp);
+
+    temp.clear();
+    temp.emplace_back(0.250104, 0.254467, 0.280373);
+
+    visualizer_cloud_and_path(cloud, ScaleFactor, temp);
 
     visualizer_cloud_and_path(cloud, ScaleFactor,
                               load_path_from_file("path1.xyz"));

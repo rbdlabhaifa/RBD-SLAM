@@ -5,6 +5,7 @@
 #include <pcl/point_cloud.h>
 
 #include <filesystem>
+#include <opencv2/core/types.hpp>
 #include <pcl/impl/point_types.hpp>
 #include <vector>
 
@@ -90,6 +91,8 @@ namespace Auxilary {
     void save_points_to_file(
         const std::vector<Eigen::Matrix<double, 3, 1>>& points,
         const std::filesystem::path& location_file_path);
+    void save_points_to_file(const std::vector<cv::Point3f>& points,
+                             const std::filesystem::path& location_file_path);
     std::vector<pcl::PointXYZ> load_path_from_file(
         const std::filesystem::path& location_file_path);
 }  // namespace Auxilary

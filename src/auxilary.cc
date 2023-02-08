@@ -153,4 +153,15 @@ namespace Auxilary {
         file_of_path.close();
     }
 
+    void save_points_to_file(const std::vector<cv::Point3f>& points,
+                             const std::filesystem::path& location_file_path) {
+        std::ofstream file_of_path(location_file_path);
+
+        for (auto point : points)
+            file_of_path << point.x << " " << point.y << " " << point.z
+                         << std::endl;
+
+        file_of_path.close();
+    }
+
 }  // namespace Auxilary

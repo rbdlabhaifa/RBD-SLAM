@@ -16,44 +16,55 @@
 
 #include "ctello.h"
 
-class Drone {
+class SomeDrone {
    public:
-    // Need to use this constructor for Charger
-    Drone(const std::string &drone_name,
-          const std::string &rpi_bluetooth_address)
-        : tello_(std::make_shared<ctello::Tello>()), drone_name_(drone_name) {}
-
-    Drone() : tello_(std::make_shared<ctello::Tello>()) {}
-
     void update_pose(const cv::Mat &drone_pose);
     const cv::Mat &get_pose();
 
-    int get_battery();
+    virtual int get_battery() { return 0; };
+
+    virtual void send_command(const std::string &cmd,
+                              bool wait_for_response = true){};
+
+    virtual void tello_stream_on(){};
+    virtual void tello_stream_off(){};
+
+    virtual void activate_drone(){};
+
+   private:
+    cv::Mat drone_pose_;
+};
+
+class Drone : public SomeDrone {
+   public:
+    // Need to use this constructor for Charger
+    Drone(const std::string &drone_name,
+          const std::string &rpi_bluetooth_address, bool send_commands = true)
+        : send_commands(send_commands),
+          tello_(std::make_shared<ctello::Tello>()),
+          drone_name_(drone_name) {}
+
+    Drone(bool send_commands = true)
+        : send_commands(send_commands),
+          tello_(std::make_shared<ctello::Tello>()) {}
 
     void send_command(const std::string &cmd, bool wait_for_response = true);
-
     void tello_stream_on();
     void tello_stream_off();
 
-    void turn_drone_on_and_connect(bool turn_on = true);
-    void turn_drone_off();
     void activate_drone();
+    int get_battery();
 
     void testOnOff();
 
     void test_reconnection();
-    /**
-     * @brief Set the end drone process object
-     *
-     * @param end_drone_process
-     */
+
    private:
     //--- Variables ---
 
     std::shared_ptr<ctello::Tello> tello_;
     std::string drone_name_;
-
-    cv::Mat drone_pose_;
+    bool send_commands;
 
     int arucoId;
 };

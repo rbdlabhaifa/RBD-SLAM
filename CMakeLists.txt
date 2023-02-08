@@ -8,9 +8,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(external/ORB_SLAM2)
-
+add_library(ORB_SLAM3 SHARED IMPORTED)
+set_property(TARGET ORB_SLAM3 PROPERTY IMPORTED_LOCATION
+/usr/local/lib/libORB_SLAM3.so)
+set(ORB_SLAM3_INCLUDES
+    external/ORB_SLAM3/include external/ORB_SLAM3/include/CameraModels
+    external/ORB_SLAM3 external/ORB_SLAM3/Thirdparty/Sophus external/ORB_SLAM3/Thirdparty/g2o external/ORB_SLAM3/Thirdparty/DBoW2)
+#find_package(MORB_SLAM REQUIRED)
 find_package(PCL 1.2 REQUIRED)
+find_package(Pangolin REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED)
 find_package(LEMON REQUIRED)
@@ -24,30 +30,32 @@ add_definitions(${PCL_DEFINITIONS})
 # Tello + Stream
 add_library(tello_stream src/streamer.cc src/drone.cc)
 target_include_directories(tello_stream PUBLIC include)
-target_link_libraries(tello_stream PRIVATE ${OpenCV_LIBS} ${Boost_LIBRARIES}
-                                           ctello)
+target_link_libraries(tello_stream PRIVATE ${Boost_LIBRARIES}
+	ctello ${OpenCV_LIBS})
 
 # Path Builder
 add_library(path_builder src/path_builder.cc src/auxilary.cc)
 target_include_directories(path_builder PUBLIC include)
 target_include_directories(path_builder PRIVATE ${LEMON_INCLUDE_DIR})
 target_link_libraries(path_builder PRIVATE ${LEMON_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(path_builder PUBLIC ${OpenCV_LIBS})
 
 # Auto Navigation App
 add_executable(
   auto_navigation src/apps/auto_navigation.cc src/navigator.cc src/explorer.cc
                   src/path_builder.cc src/auxilary.cc)
-target_link_libraries(auto_navigation PRIVATE ${PCL_LIBRARIES} Eigen3::Eigen)
+target_link_libraries(auto_navigation PRIVATE ${PCL_LIBRARIES})
 target_link_libraries(auto_navigation PRIVATE ${OpenCV_LIBS} ${Boost_LIBRARIES})
-target_link_libraries(auto_navigation PRIVATE ORB_SLAM2)
+target_link_libraries(auto_navigation PRIVATE ORB_SLAM3 ${Pangolin_LIBRARIES})
 target_link_libraries(auto_navigation PRIVATE tello_stream path_builder)
-target_include_directories(auto_navigation PRIVATE include)
+target_include_directories(auto_navigation PRIVATE include ${ORB_SLAM3_INCLUDES})
 
 # Map Builder App
 add_executable(map_builder src/utils/map_builder.cc)
-target_link_libraries(map_builder PRIVATE ORB_SLAM2 ${OpenCV_LIBS}
-                                          ${Boost_LIBRARIES} tello_stream)
-target_include_directories(map_builder PRIVATE include)
+target_link_libraries(
+	map_builder PRIVATE ORB_SLAM3 ${Pangolin_LIBRARIES} ${OpenCV_LIBS}
+                      ${Boost_LIBRARIES} tello_stream)
+target_include_directories(map_builder PRIVATE include ${ORB_SLAM3_INCLUDES})
 
 add_executable(show_rrt src/utils/show_rrt.cc)
 target_link_libraries(show_rrt PRIVATE ${PCL_LIBRARIES} path_builder)

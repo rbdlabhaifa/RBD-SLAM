@@ -12,7 +12,7 @@
 
 using namespace std::chrono_literals;
 
-Streamer::Streamer(std::shared_ptr<Drone> drone, int max_frames_in_queue)
+Streamer::Streamer(std::shared_ptr<SomeDrone> drone, int max_frames_in_queue)
     : drone(drone), frame_queue(max_frames_in_queue), close_stream(false) {}
 
 Streamer::~Streamer() { end_stream(); }
@@ -55,4 +55,6 @@ void Streamer::end_stream() {
     close_stream = true;
     image_thread.join();
     if (drone != nullptr) drone->send_command("streamoff");
+
+    std::cout << "Stream Closed" << std::endl;
 }

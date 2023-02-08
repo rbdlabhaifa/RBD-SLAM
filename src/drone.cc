@@ -11,7 +11,10 @@
 // void Drone::test_reconnection() { charger->test_reconnection(); }
 
 void Drone::send_command(const std::string &cmd, bool wait_for_response) {
-    std::cout << "(Tello) command: " << cmd << std::endl;
+    std::cout << "(Tello" << (send_commands ? "" : " Fake")
+              << ") command: " << cmd << std::endl;
+    if (!send_commands && cmd != "streamon" && cmd != "streamoff") return;
+
     if (!wait_for_response) {
         tello_->SendCommand(cmd);
         return;
@@ -36,11 +39,11 @@ void Drone::activate_drone() {
     }
 }
 
-void Drone::update_pose(const cv::Mat &drone_pose) {
+void SomeDrone::update_pose(const cv::Mat &drone_pose) {
     this->drone_pose_ = drone_pose;
 }
 
-const cv::Mat &Drone::get_pose() { return drone_pose_; }
+const cv::Mat &SomeDrone::get_pose() { return drone_pose_; }
 
 void Drone::tello_stream_on() { send_command("streamon"); }
 
