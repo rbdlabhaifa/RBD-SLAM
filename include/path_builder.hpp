@@ -10,14 +10,14 @@
 
 class PathBuilder {
     float scale_factor = 0.2;
-    float change_scale_factor = 0.1;
-    std::size_t tries_scale_factor = 10;
-    std::size_t how_long_valid_path = 10;
+    const float change_scale_factor = 0.1;
+    const std::size_t tries_scale_factor = 10;
+    const std::size_t how_long_valid_path = 10;
 
     bool debug = true;
 
    public:
-    PathBuilder(float scale_factor);
+    explicit PathBuilder(float scale_factor);
     PathBuilder();
 
     static void get_navigation_points(

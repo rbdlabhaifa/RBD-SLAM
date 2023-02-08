@@ -6,8 +6,6 @@
 #include <random>
 #include <vector>
 
-using namespace Auxilary;
-
 namespace Auxilary {
     int radius_search(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
                       const pcl::PointXYZ& search_point, float radius,
@@ -21,13 +19,13 @@ namespace Auxilary {
     }
 
     pcl::PointXYZ operator-(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) {
-        return pcl::PointXYZ(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+        return {p1.x - p2.x, p1.y - p2.y, p1.z - p2.z};
     }
 
     pcl::PointXYZ operator/(const pcl::PointXYZ& p, float d) {
         if (d == 0) return p;
 
-        return pcl::PointXYZ(p.x / d, p.y / d, p.z / d);
+        return {p.x / d, p.y / d, p.z / d};
     }
 
     float norm(const pcl::PointXYZ& p) {
@@ -39,14 +37,14 @@ namespace Auxilary {
     }
 
     pcl::PointXYZ operator*(const pcl::PointXYZ& p, float a) {
-        return pcl::PointXYZ(p.x * a, p.y * a, p.z * a);
+        return {p.x * a, p.y * a, p.z * a};
     }
     pcl::PointXYZ operator*(float a, const pcl::PointXYZ& p) {
-        return pcl::PointXYZ(p.x * a, p.y * a, p.z * a);
+        return {p.x * a, p.y * a, p.z * a};
     }
 
     pcl::PointXYZ operator+(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) {
-        return pcl::PointXYZ(p1.x + p2.x, p1.y + p2.y, p1.z + p2.z);
+        return {p1.x + p2.x, p1.y + p2.y, p1.z + p2.z};
     }
 
     bool operator==(const pcl::PointXYZ& lhs, const pcl::PointXYZ& rhs) {
@@ -64,7 +62,7 @@ namespace Auxilary {
         pcl::PointXYZ hat_p = start_to_end / total_travel_line;
         for (float i = jump_distance; i < total_travel_line;
              i += jump_distance) {
-            points_on_line.push_back(pcl::PointXYZ(start + hat_p * i));
+            points_on_line.push_back(start + hat_p * i);
         }
 
         return points_on_line;
@@ -96,16 +94,15 @@ namespace Auxilary {
         std::random_device rd;
         std::mt19937 gen(rd());
 
-        std::uniform_real_distribution<> dis(-30, 30);
+        std::uniform_real_distribution<float> dis(-30, 30);
 
-        return pcl::PointXYZ(dis(gen) * span_v1 + dis(gen) * span_v2);
+        return dis(gen) * span_v1 + dis(gen) * span_v2;
     }
 
     pcl::PointXYZ cross_product(const pcl::PointXYZ& v_a,
                                 const pcl::PointXYZ& v_b) {
-        return pcl::PointXYZ(v_a.y * v_b.z - v_a.z * v_b.y,
-                             -(v_a.x * v_b.z - v_a.z * v_b.x),
-                             v_a.x * v_b.y - v_a.y * v_b.x);
+        return {v_a.y * v_b.z - v_a.z * v_b.y, -(v_a.x * v_b.z - v_a.z * v_b.x),
+                v_a.x * v_b.y - v_a.y * v_b.x};
     }
 
     std::vector<pcl::PointXYZ> load_path_from_file(
@@ -130,13 +127,14 @@ namespace Auxilary {
         return path_to_unknown;
     }
 
-    void save_path_to_file(const std::vector<pcl::PointXYZ>& path,
-                           const std::filesystem::path& location_file_path) {
+    void save_points_to_file(const std::vector<pcl::PointXYZ>& points,
+                             const std::filesystem::path& location_file_path) {
         std::ofstream file_of_path(location_file_path);
 
-        for (auto point : path)
+        for (const auto& point : points) {
             file_of_path << point.x << " " << point.y << " " << point.z
                          << std::endl;
+        }
 
         file_of_path.close();
     }
@@ -146,9 +144,10 @@ namespace Auxilary {
         const std::filesystem::path& location_file_path) {
         std::ofstream file_of_path(location_file_path);
 
-        for (auto point : points)
+        for (const auto& point : points) {
             file_of_path << point.x() << " " << point.y() << " " << point.z()
                          << std::endl;
+        }
 
         file_of_path.close();
     }
@@ -157,9 +156,10 @@ namespace Auxilary {
                              const std::filesystem::path& location_file_path) {
         std::ofstream file_of_path(location_file_path);
 
-        for (auto point : points)
+        for (const auto& point : points) {
             file_of_path << point.x << " " << point.y << " " << point.z
                          << std::endl;
+        }
 
         file_of_path.close();
     }

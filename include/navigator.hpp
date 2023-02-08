@@ -85,14 +85,17 @@ class Navigator {
    public:
     std::shared_ptr<Explorer> explorer;
 
-    Navigator(std::shared_ptr<SomeDrone>,
-              const std::vector<cv::Point3f>& destinations,
+    Navigator(const Navigator&) = delete;
+    Navigator(Navigator&&) = delete;
+    Navigator& operator=(const Navigator&) = delete;
+    Navigator& operator=(Navigator&&) = delete;
+    Navigator(std::shared_ptr<SomeDrone>, std::vector<cv::Point3f> destinations,
               const std::string& vocabulary_file_path,
               const std::string& calibration_file_path,
-              const std::string& map_file_path,
+              std::string map_file_path,
               boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
                   frame_queue,
-              const std::filesystem::path& data_dir = ".");
+              std::filesystem::path data_dir = ".");
     ~Navigator();
 
     void start_navigation(bool use_explorer = true);

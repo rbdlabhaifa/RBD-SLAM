@@ -86,8 +86,8 @@ namespace Auxilary {
     pcl::PointXYZ cross_product(const pcl::PointXYZ& v_a,
                                 const pcl::PointXYZ& v_b);
 
-    void save_path_to_file(const std::vector<pcl::PointXYZ>& path,
-                           const std::filesystem::path& location_file_path);
+    void save_points_to_file(const std::vector<pcl::PointXYZ>& points,
+                             const std::filesystem::path& location_file_path);
     void save_points_to_file(
         const std::vector<Eigen::Matrix<double, 3, 1>>& points,
         const std::filesystem::path& location_file_path);

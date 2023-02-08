@@ -13,7 +13,8 @@ class Explorer {
     bool got_plane_of_flight = false;
 
    public:
-    Explorer(const std::vector<Eigen::Matrix<double, 3, 1>>& map_points);
+    explicit Explorer(
+        const std::vector<Eigen::Matrix<double, 3, 1>>& map_points);
 
     void add_points_to_cloud(
         const std::vector<Eigen::Matrix<double, 3, 1>>& map_points);
@@ -22,7 +23,7 @@ class Explorer {
                              const pcl::PointXYZ& known_point2,
                              const pcl::PointXYZ& known_point3);
 
-    bool is_set_plane_of_flight();
+    bool is_set_plane_of_flight() const { return got_plane_of_flight; }
 
     std::vector<pcl::PointXYZ> get_points_to_unknown(
         const pcl::PointXYZ& start_point);

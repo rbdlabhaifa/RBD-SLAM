@@ -50,15 +50,3 @@ void Drone::tello_stream_on() { send_command("streamon"); }
 int Drone::get_battery() { return tello_->GetBatteryStatus(); }
 
 void Drone::tello_stream_off() { send_command("streamoff"); }
-
-// void Drone::turn_drone_off() { charger->turn_drone_off(); }
-
-// void Drone::turn_drone_on_and_connect(bool turn_on) {
-//     if (turn_on) charger->turn_drone_on();
-//     charger->connectToDrone(drone_name_);
-//     tello_ = std::make_shared<ctello::Tello>();
-//     while (!tello_->Bind())
-//         ;
-//     std::cout << "CONNECTED" << std::endl;
-//     charger->set_tello(tello_);
-// }

@@ -38,22 +38,23 @@ class SomeDrone {
 class Drone : public SomeDrone {
    public:
     // Need to use this constructor for Charger
-    Drone(const std::string &drone_name,
-          const std::string &rpi_bluetooth_address, bool send_commands = true)
+    Drone(std::string drone_name, const std::string &rpi_bluetooth_address,
+          bool send_commands = true)
         : send_commands(send_commands),
           tello_(std::make_shared<ctello::Tello>()),
-          drone_name_(drone_name) {}
+          drone_name_(std::move(drone_name)) {}
 
-    Drone(bool send_commands = true)
+    explicit Drone(bool send_commands = true)
         : send_commands(send_commands),
           tello_(std::make_shared<ctello::Tello>()) {}
 
-    void send_command(const std::string &cmd, bool wait_for_response = true);
-    void tello_stream_on();
-    void tello_stream_off();
+    void send_command(const std::string &cmd,
+                      bool wait_for_response = true) override;
+    void tello_stream_on() override;
+    void tello_stream_off() override;
 
-    void activate_drone();
-    int get_battery();
+    void activate_drone() override;
+    int get_battery() override;
 
     void testOnOff();
 
@@ -65,8 +66,6 @@ class Drone : public SomeDrone {
     std::shared_ptr<ctello::Tello> tello_;
     std::string drone_name_;
     bool send_commands;
-
-    int arucoId;
 };
 
 #endif

@@ -12,11 +12,11 @@ Explorer::Explorer(const std::vector<Eigen::Matrix<double, 3, 1>>& map_points)
 void Explorer::add_points_to_cloud(
     const std::vector<Eigen::Matrix<double, 3, 1>>& map_points) {
     for (auto p : map_points) {
-        cloud->push_back(pcl::PointXYZ(p.x(), p.y(), p.z()));
+        cloud->push_back(pcl::PointXYZ(static_cast<float>(p.x()),
+                                       static_cast<float>(p.y()),
+                                       static_cast<float>(p.z())));
     }
 }
-
-bool Explorer::is_set_plane_of_flight() { return got_plane_of_flight; }
 
 void Explorer::set_plane_of_flight(const pcl::PointXYZ& known_point1,
                                    const pcl::PointXYZ& known_point2,
@@ -31,7 +31,7 @@ std::vector<pcl::PointXYZ> Explorer::get_points_to_unknown(
     if (!got_plane_of_flight) {
         std::cerr << "Explorer: Expected plane of flight to be set"
                   << std::endl;
-        return std::vector<pcl::PointXYZ>();
+        return {};
     }
 
     return PathBuilder()(cloud, start_point, known_points[0], known_points[1],

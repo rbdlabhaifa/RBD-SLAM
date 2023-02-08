@@ -7,13 +7,16 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 #include <thread>
+#include <utility>
 
 #include "drone.hpp"
 
 using namespace std::chrono_literals;
 
 Streamer::Streamer(std::shared_ptr<SomeDrone> drone, int max_frames_in_queue)
-    : drone(drone), frame_queue(max_frames_in_queue), close_stream(false) {}
+    : drone(std::move(drone)),
+      frame_queue(max_frames_in_queue),
+      close_stream(false) {}
 
 Streamer::~Streamer() { end_stream(); }
 
@@ -24,13 +27,14 @@ Streamer::get_frame_queue() {
 
 void Streamer::grab_image() {
     cv::Mat frame;
-    std::array<uchar, 640 * 480 * 3> frame_arr;
+    std::array<uchar, 640 * 480 * 3> frame_arr{};
     cv::VideoCapture capture;
 
-    if (drone == nullptr)
+    if (drone == nullptr) {
         capture.open(0);
-    else
+    } else {
         capture.open("udp://0.0.0.0:11111?overrun_nonfatal=1&fifo_size=5000");
+    }
 
     while (!close_stream) {
         if (!capture.isOpened()) break;  // TODO: add logging here

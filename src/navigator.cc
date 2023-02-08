@@ -16,6 +16,7 @@
 #include <opencv2/core/types.hpp>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "Converter.h"
@@ -27,21 +28,20 @@
 #include "explorer.hpp"
 
 Navigator::Navigator(
-    std::shared_ptr<SomeDrone> drone,
-    const std::vector<cv::Point3f>& destinations,
+    std::shared_ptr<SomeDrone> drone, std::vector<cv::Point3f> destinations,
     const std::string& vocabulary_file_path,
-    const std::string& calibration_file_path, const std::string& map_file_path,
+    const std::string& calibration_file_path, std::string map_file_path,
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue,
-    const std::filesystem::path& data_dir)
-    : drone(drone),
-      destinations(destinations),
+    std::filesystem::path data_dir)
+    : drone(std::move(drone)),
+      destinations(std::move(destinations)),
       vocabulary_file_path(vocabulary_file_path),
       calibration_file_path(calibration_file_path),
-      map_file_path(map_file_path),
+      map_file_path(std::move(map_file_path)),
       frame_queue(frame_queue),
       pose_updated(false),
       started_navigation(false),
-      data_dir(data_dir),
+      data_dir(std::move(data_dir)),
       close_navigation(false) {
     SLAM = std::make_unique<ORB_SLAM3::System>(vocabulary_file_path,
                                                calibration_file_path,
@@ -100,14 +100,16 @@ std::pair<cv::Mat, cv::Mat> Navigator::get_alignment_matrices(
     }
 
     std::size_t nPoints = points.size();
-    cv::Mat A((int)nPoints, 3, CV_32F);
+    cv::Mat A(static_cast<int>(nPoints), 3, CV_32F);
     for (std::size_t i = 0; i < nPoints; i++) {
-        A.at<float>(i, 0) = points[i].x;
-        A.at<float>(i, 1) = points[i].y;
-        A.at<float>(i, 2) = points[i].z;
+        A.at<float>(static_cast<int>(i), 0) = points[i].x;
+        A.at<float>(static_cast<int>(i), 1) = points[i].y;
+        A.at<float>(static_cast<int>(i), 2) = points[i].z;
     }
 
-    cv::Mat w, u, vt;
+    cv::Mat w;
+    cv::Mat u;
+    cv::Mat vt;
     cv::SVDecomp(A.t(), w, u, vt);
     R_align = u.t();
 
@@ -117,7 +119,7 @@ std::pair<cv::Mat, cv::Mat> Navigator::get_alignment_matrices(
 cv::Point3f Navigator::calc_aligned_point(const cv::Point3f& point,
                                           const cv::Mat& R_align,
                                           const cv::Mat& mu_align) {
-    return cv::Point3f(cv::Mat(R_align * (cv::Mat(point) - mu_align)));
+    return {cv::Mat(R_align * (cv::Mat(point) - mu_align))};
 }
 
 cv::Mat Navigator::calc_aligned_pose(const cv::Mat& pose,
@@ -157,12 +159,15 @@ cv::Point3f Navigator::rotation_matrix_to_euler_angles(const cv::Mat& R) {
         y = atan2(-R.at<float>(2, 0), sy);
         z = 0;
     }
-    return cv::Point3f(x * 180 / CV_PI, y * 180 / CV_PI, z * 180 / CV_PI);
+    return {static_cast<float>(x * 180 / CV_PI),
+            static_cast<float>(y * 180 / CV_PI),
+            static_cast<float>(z * 180 / CV_PI)};
 }
 
 cv::Mat Navigator::sophus_to_cv(const Sophus::SE3f& pose) {
     cv::Mat pose_cv = cv::Mat::eye(4, 4, CV_32F);
-    cv::Mat rotation_cv, translation_cv;
+    cv::Mat rotation_cv;
+    cv::Mat translation_cv;
 
     cv::eigen2cv(pose.rotationMatrix(), rotation_cv);
     cv::eigen2cv(pose.translation(), translation_cv);
@@ -176,7 +181,7 @@ cv::Mat Navigator::sophus_to_cv(const Sophus::SE3f& pose) {
 void Navigator::update_pose() {
     bool localization_activated = false;
     double frame_cnt = 0;
-    std::array<uchar, 640 * 480 * 3> current_frame;
+    std::array<uchar, 640 * 480 * 3> current_frame{};
 
     auto start_time = std::chrono::steady_clock::now();
     while (!close_navigation) {
@@ -204,8 +209,9 @@ void Navigator::update_pose() {
             //     continue;
 
             SLAM->ActivateLocalizationMode();
-            if (!started_navigation)
+            if (!started_navigation) {
                 SLAM->GetAtlas()->ChangeMap(SLAM->GetAtlas()->GetAllMaps()[0]);
+            }
 
             drone->update_pose(current_pose);
             if (!started_navigation) {
@@ -246,7 +252,7 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f& location,
 
     cv::Point2f vec1(destination.x - location.x, destination.y - location.y);
     // Get angle from vec1
-    float angle2 = std::atan2(vec1.y, vec1.x) * 180 / M_PI;
+    float angle2 = static_cast<float>(atan2(vec1.y, vec1.x) * 180 / M_PI);
 
     float ang_diff = angle1 - angle2;
     while (ang_diff > 180) ang_diff -= 360;
@@ -255,10 +261,13 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f& location,
     if (abs(ang_diff) > 8) {
         drone->send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(1s);
-        if (ang_diff > 0)
-            drone->send_command("cw " + std::to_string((int)ang_diff + 2));
-        else
-            drone->send_command("ccw " + std::to_string((int)-ang_diff + 2));
+        if (ang_diff > 0) {
+            drone->send_command("cw " +
+                                std::to_string(static_cast<int>(ang_diff) + 2));
+        } else {
+            drone->send_command(
+                "ccw " + std::to_string(static_cast<int>(-ang_diff) + 2));
+        }
         std::this_thread::sleep_for(2s);
         if (abs(ang_diff) > 100) std::this_thread::sleep_for(2s);
         pose_updated = false;  // TODO: maybe remove?
@@ -277,12 +286,12 @@ cv::Point3f Navigator::get_last_location() {
     const cv::Mat& tcw = aligned_pose.rowRange(0, 3).col(3);
     if (!save_pose) {
         Auxilary::save_points_to_file(
-            std::vector<cv::Point3f>{cv::Point3f(cv::Mat(-Rwc * tcw))},
+            std::vector<cv::Point3f>{cv::Mat(-Rwc * tcw)},
             data_dir / "pose.xyz");
 
         save_pose = true;
     }
-    return cv::Point3f(cv::Mat(-Rwc * tcw));
+    return {cv::Mat(-Rwc * tcw)};
 }
 
 bool Navigator::goto_next_destination() {
@@ -325,7 +334,7 @@ bool Navigator::goto_the_unknown() {
 
     if (path_to_the_unknown.size() < 10) return false;
 
-    Auxilary::save_path_to_file(
+    Auxilary::save_points_to_file(
         path_to_the_unknown,
         data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
 
@@ -333,8 +342,9 @@ bool Navigator::goto_the_unknown() {
         path_to_the_unknown.begin(), path_to_the_unknown.end(),
         [&](const auto& p) { destinations.emplace_back(p.x, p.y, p.z); });
 
-    while (goto_next_destination())
+    while (goto_next_destination()) {
         std::cout << "Reached a point in the path to the unknown!" << std::endl;
+    }
 
     return true;
 }

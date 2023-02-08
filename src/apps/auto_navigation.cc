@@ -22,10 +22,10 @@ using namespace std::chrono_literals;
 
 std::filesystem::path create_new_directory_named_current_time() {
     // TODO: Maybe change the time format
-    time_t now = time(0);
+    time_t now = time(nullptr);
     std::string current_time = std::string(ctime(&now));
     current_time.pop_back();
-    const std::filesystem::path directory_named_time = current_time;
+    std::filesystem::path directory_named_time = current_time;
 
     std::filesystem::create_directories(directory_named_time);
     return directory_named_time;
@@ -97,11 +97,13 @@ int main(int argc, char* argv[]) {
 
     // navigator.update_plane_of_flight();
 
-    while (navigator.goto_next_destination())
+    while (navigator.goto_next_destination()) {
         std::cout << "Reached destination!" << std::endl;
+    }
 
-    if (!navigator.goto_the_unknown())
+    if (!navigator.goto_the_unknown()) {
         std::cout << "Couldn't find a path to the unknown";
+    }
 
     std::cout << "Reached all destinations" << std::endl;
 

@@ -21,13 +21,17 @@ class Streamer {
     void grab_image();
 
    public:
-    Streamer(std::shared_ptr<SomeDrone> drone = nullptr,
-             int max_frames_in_queue = MAX_FRAMES_IN_QUEUE);
+    explicit Streamer(std::shared_ptr<SomeDrone> drone = nullptr,
+                      int max_frames_in_queue = MAX_FRAMES_IN_QUEUE);
+    Streamer(const Streamer &) = delete;
+    Streamer(Streamer &&) = delete;
+    Streamer &operator=(const Streamer &) = delete;
+    Streamer &operator=(Streamer &&) = delete;
     ~Streamer();
     void start_stream();
     void end_stream();
-    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
-    get_frame_queue();
+    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>
+        &get_frame_queue();
 };
 
 #endif  // STREAMER_H_

@@ -175,5 +175,5 @@ void PathBuilder::operator()(
     const std::filesystem::path& location_file_path_to_the_unknown) {
     std::vector<pcl::PointXYZ> path_to_the_unknown = operator()(
         cloud, start_point, known_point1, known_point2, known_point3);
-    save_path_to_file(path_to_the_unknown, location_file_path_to_the_unknown);
+    save_points_to_file(path_to_the_unknown, location_file_path_to_the_unknown);
 }
