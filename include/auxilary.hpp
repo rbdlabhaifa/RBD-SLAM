@@ -1,15 +1,28 @@
 #ifndef AUXILARY_H_
 #define AUXILARY_H_
 
+#include <libqhullcpp/QhullFacetList.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/point_cloud.h>
+#include <pcl/search/kdtree.h>
 
+#include <array>
+#include <boost/container_hash/hash.hpp>
+#include <cstddef>
 #include <filesystem>
 #include <opencv2/core/types.hpp>
 #include <pcl/impl/point_types.hpp>
 #include <vector>
 
 namespace Auxilary {
+    struct FacetPlane {
+        pcl::PointXYZ normal;
+        double offset = 0;
+    };
+    struct ConvexHullEquations {
+        std::vector<FacetPlane> facets_planes;
+    };
+
     struct Edge {
         pcl::PointXYZ p1;
         pcl::PointXYZ p2;
@@ -63,25 +76,35 @@ namespace Auxilary {
                                                   const pcl::PointXYZ& end,
                                                   float jump_distance);
 
+    std::vector<ConvexHullEquations> get_convexhulls(
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+        const std::vector<pcl::PointIndices>& cluster_indices);
+
+    pcl::PointXYZ vec_to_pcl(std::vector<double> vec);
+
     bool is_valid_movement(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
                            const pcl::PointXYZ& current_point,
                            const pcl::PointXYZ& dest_point,
                            const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree,
-                           float scale_factor);
+                           float scale_factor,
+                           const std::vector<ConvexHullEquations>& convexhulls);
 
-    /**
-     * @brief This function finds random point on plane
-     * the plane is define by those three points which are point1 point2 point3
-     * @warning point1 , point2 , point3 should not be on the same line
-     * preferably they should be perpedicular
-     * @param p1[in] -> should be point on plane
-     * @param p2[in] -> should be point on plane
-     * @param p3[in] -> should be point on plane
-     * @returns randomVectorOnPlane -> random point on plane !
-     * */
-    pcl::PointXYZ get_random_point_on_plane_def_by_3_points(
+    bool check_convexhull_intersection(const pcl::PointXYZ& p,
+                                       const ConvexHullEquations& convexhull,
+                                       double tolerance = 1e-12);
+
+    bool check_convexhull_intersection(const pcl::PointXYZ& start,
+                                       const pcl::PointXYZ& end,
+                                       const ConvexHullEquations& convexhull);
+
+    std::pair<pcl::PointXYZ, float> get_plane_from_3_points(
         const pcl::PointXYZ& p1, const pcl::PointXYZ& p2,
         const pcl::PointXYZ& p3);
+    pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& cp, float d);
+
+    std::vector<pcl::PointIndices> get_clusters(
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+        pcl::search::KdTree<pcl::PointXYZ>::Ptr kdtree);
 
     pcl::PointXYZ cross_product(const pcl::PointXYZ& v_a,
                                 const pcl::PointXYZ& v_b);

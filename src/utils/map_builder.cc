@@ -12,14 +12,17 @@
 #include <csignal>
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
 #include <thread>
 #include <vector>
 
 #include "MapPoint.h"
 #include "drone.hpp"
+#include "slam_utils.hpp"
 #include "streamer.hpp"
 
 #define DESTINATIONS_FILE_NAME "drone_destinations.txt"
@@ -45,28 +48,50 @@ void save_point_data(ORB_SLAM3::System& SLAM,
                      const std::filesystem::path& directory) {
     const std::filesystem::path point_data_xyz_path =
         directory / "point_data.xyz";
-    const std::filesystem::path point_data_csv_path =
-        directory / "point_data.csv";
+    const std::filesystem::path aligned_point_data_xyz_path =
+        directory / "aligned_point_data.xyz";
+    const std::filesystem::path aligned_destinations_xyz_path =
+        directory / "aligned_destinations.xyz";
+
     const std::vector<ORB_SLAM3::MapPoint*> map_points =
         SLAM.GetAtlas()
             ->GetCurrentMap()  // TODO: should we take all the maps?
             ->GetAllMapPoints();
 
-    std::ofstream point_data(point_data_csv_path);
+    const auto [R_align, mu_align] =
+        SLAMUtils::get_alignment_matrices(map_points);
+
+    const auto aligned_map_points =
+        SLAMUtils::get_aligned_points_from_slam(map_points, R_align, mu_align);
+
+    std::ofstream aligned_point_data_xyz(aligned_point_data_xyz_path);
     std::ofstream point_data_xyz(point_data_xyz_path);
+    std::ofstream aligned_destinations_xyz(aligned_destinations_xyz_path);
 
     for (const auto& p : map_points) {
         if (p != nullptr) {
             const Eigen::Vector3f v = p->GetWorldPos();
 
-            point_data << v.x() << "," << v.y() << "," << v.z() << std::endl;
             point_data_xyz << v.x() << " " << v.y() << " " << v.z()
                            << std::endl;
         }
     }
 
-    point_data.close();
+    for (const auto& v : aligned_map_points) {
+        aligned_point_data_xyz << v.x() << " " << v.y() << " " << v.z()
+                               << std::endl;
+    }
+
+    for (const auto& d : SLAM.destinations) {
+        auto d_aligned =
+            SLAMUtils::calc_aligned_point(cv::Point3f(d), R_align, mu_align);
+        aligned_destinations_xyz << d_aligned.x << " " << d_aligned.y << " "
+                                 << d_aligned.z << std::endl;
+    }
+
+    aligned_destinations_xyz.close();
     point_data_xyz.close();
+    aligned_point_data_xyz.close();
 }
 
 void register_signal() {

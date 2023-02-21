@@ -9,6 +9,15 @@ Explorer::Explorer(const std::vector<Eigen::Matrix<double, 3, 1>>& map_points)
     add_points_to_cloud(map_points);
 }
 
+Explorer::Explorer(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud)
+    : cloud(new pcl::PointCloud<pcl::PointXYZ>(*cloud)) {}
+
+void Explorer::set_cloud_points(
+    const std::vector<Eigen::Matrix<double, 3, 1>>& map_points) {
+    cloud->clear();
+    add_points_to_cloud(map_points);
+}
+
 void Explorer::add_points_to_cloud(
     const std::vector<Eigen::Matrix<double, 3, 1>>& map_points) {
     for (auto p : map_points) {
@@ -26,14 +35,22 @@ void Explorer::set_plane_of_flight(const pcl::PointXYZ& known_point1,
     known_points = {known_point1, known_point2, known_point3};
 }
 
+std::vector<pcl::PointXYZ> Explorer::get_last_graph() {
+    std::vector<pcl::PointXYZ> last_graph = RRT_points;
+    RRT_points.clear();
+    return last_graph;
+}
+
 std::vector<pcl::PointXYZ> Explorer::get_points_to_unknown(
-    const pcl::PointXYZ& start_point) {
+    const pcl::PointXYZ& start_point, float scale_factor,
+    const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
     if (!got_plane_of_flight) {
         std::cerr << "Explorer: Expected plane of flight to be set"
                   << std::endl;
         return {};
     }
 
-    return PathBuilder()(cloud, start_point, known_points[0], known_points[1],
-                         known_points[2]);
+    return PathBuilder(scale_factor)(cloud, start_point, known_points[0],
+                                     known_points[1], known_points[2],
+                                     RRT_points, point_of_interest);
 }

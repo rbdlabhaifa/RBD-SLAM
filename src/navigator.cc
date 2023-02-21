@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <future>
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -26,23 +27,23 @@
 #include "auxilary.hpp"
 #include "drone.hpp"
 #include "explorer.hpp"
+#include "slam_utils.hpp"
 
 Navigator::Navigator(
-    std::shared_ptr<SomeDrone> drone, std::vector<cv::Point3f> destinations,
-    const std::string& vocabulary_file_path,
+    std::shared_ptr<SomeDrone> drone, const std::string& vocabulary_file_path,
     const std::string& calibration_file_path, std::string map_file_path,
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue,
-    std::filesystem::path data_dir)
+    bool existing_map, std::filesystem::path data_dir,
+    std::vector<cv::Point3f> destinations)
     : drone(std::move(drone)),
       destinations(std::move(destinations)),
       vocabulary_file_path(vocabulary_file_path),
       calibration_file_path(calibration_file_path),
       map_file_path(std::move(map_file_path)),
       frame_queue(frame_queue),
-      pose_updated(false),
-      started_navigation(false),
+      existing_map(existing_map),
       data_dir(std::move(data_dir)),
-      close_navigation(false) {
+      end_loop(existing_map) {
     SLAM = std::make_unique<ORB_SLAM3::System>(vocabulary_file_path,
                                                calibration_file_path,
                                                ORB_SLAM3::System::MONOCULAR);
@@ -52,74 +53,6 @@ Navigator::~Navigator() {
     close_navigation = true;
     update_pose_thread.join();
     SLAM->Shutdown();
-}
-
-std::vector<Eigen::Matrix<double, 3, 1>> Navigator::get_points_from_slam() {
-    std::vector<Eigen::Matrix<double, 3, 1>> points;
-    std::vector<ORB_SLAM3::MapPoint*> map_points =
-        SLAM->GetAtlas()
-            ->GetCurrentMap()
-            ->GetAllMapPoints();  // TODO: should we take all the maps?
-
-    map_points.erase(std::remove(map_points.begin(), map_points.end(), nullptr),
-                     map_points.end());
-
-    std::transform(
-        map_points.begin(), map_points.end(), std::back_inserter(points),
-        [&](const auto& p) {
-            const Eigen::Vector3f& v = p->GetWorldPos();
-
-            return ORB_SLAM3::Converter::toVector3d(calc_aligned_point(
-                cv::Point3f(v.x(), v.y(), v.z()), R_align, mu_align));
-        });
-
-    return points;
-}
-
-std::pair<cv::Mat, cv::Mat> Navigator::get_alignment_matrices(
-    const std::vector<ORB_SLAM3::MapPoint*>& map_points) {
-    cv::Mat mu_align1;
-    cv::Mat R_align;
-
-    std::vector<cv::Point3f> points;
-    points.reserve(map_points.size());
-
-    for (const auto& mp : map_points) {
-        auto pos = mp->GetWorldPos();
-        points.emplace_back(pos.x(), pos.y(), pos.z());
-    }
-
-    cv::reduce(points, mu_align1, 01, CV_REDUCE_AVG);
-
-    cv::Point3f mu_align_pnt(mu_align1.at<float>(0), mu_align1.at<float>(1),
-                             mu_align1.at<float>(2));
-    cv::Mat mu_align(mu_align_pnt);
-
-    for (auto& p : points) {
-        p = p - mu_align_pnt;
-    }
-
-    std::size_t nPoints = points.size();
-    cv::Mat A(static_cast<int>(nPoints), 3, CV_32F);
-    for (std::size_t i = 0; i < nPoints; i++) {
-        A.at<float>(static_cast<int>(i), 0) = points[i].x;
-        A.at<float>(static_cast<int>(i), 1) = points[i].y;
-        A.at<float>(static_cast<int>(i), 2) = points[i].z;
-    }
-
-    cv::Mat w;
-    cv::Mat u;
-    cv::Mat vt;
-    cv::SVDecomp(A.t(), w, u, vt);
-    R_align = u.t();
-
-    return std::make_pair(R_align, mu_align);
-}
-
-cv::Point3f Navigator::calc_aligned_point(const cv::Point3f& point,
-                                          const cv::Mat& R_align,
-                                          const cv::Mat& mu_align) {
-    return {cv::Mat(R_align * (cv::Mat(point) - mu_align))};
 }
 
 cv::Mat Navigator::calc_aligned_pose(const cv::Mat& pose,
@@ -179,8 +112,6 @@ cv::Mat Navigator::sophus_to_cv(const Sophus::SE3f& pose) {
 }
 
 void Navigator::update_pose() {
-    bool localization_activated = false;
-    double frame_cnt = 0;
     std::array<uchar, 640 * 480 * 3> current_frame{};
 
     auto start_time = std::chrono::steady_clock::now();
@@ -195,25 +126,20 @@ void Navigator::update_pose() {
             std::chrono::duration_cast<std::chrono::duration<double>>(
                 timestamp - start_time)
                 .count());
-        const cv::Mat current_pose = sophus_to_cv(sophus_pose);
-
-        // if (!localization_activated) {
-        //     SLAM.ActivateLocalizationMode();
-        //     localization_activated = true;
-        // }
 
         if (!pose_updated &&
             SLAM->GetTrackingState() == ORB_SLAM3::Tracking::OK) {
-            // if (!started_navigation &&
-            //     SLAM->GetAtlas()->GetAllMaps().size() > 1)
-            //     continue;
-
-            SLAM->ActivateLocalizationMode();
             if (!started_navigation) {
-                SLAM->GetAtlas()->ChangeMap(SLAM->GetAtlas()->GetAllMaps()[0]);
+                if (end_loop) {
+                    SLAM->ActivateLocalizationMode();
+                }
+                if (existing_map) {
+                    SLAM->GetAtlas()->ChangeMap(
+                        SLAM->GetAtlas()->GetAllMaps()[0]);
+                }
             }
 
-            drone->update_pose(current_pose);
+            drone->update_pose(sophus_to_cv(sophus_pose));
             if (!started_navigation) {
                 std::lock_guard<std::mutex> lock(cv_m);
                 started_navigation = true;
@@ -244,8 +170,9 @@ void Navigator::rotate_to_relocalize() {
     }
 }
 
-void Navigator::rotate_to_destination_angle(const cv::Point3f& location,
+bool Navigator::rotate_to_destination_angle(const cv::Point3f& location,
                                             const cv::Point3f& destination) {
+    bool done = true;
     // Get angle from Rwc
     cv::Point3f angles = rotation_matrix_to_euler_angles(Rwc);
     float angle1 = angles.z + 90;
@@ -261,17 +188,34 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f& location,
     if (abs(ang_diff) > 8) {
         drone->send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(1s);
-        if (ang_diff > 0) {
-            drone->send_command("cw " +
-                                std::to_string(static_cast<int>(ang_diff) + 2));
+
+        if (!existing_map && abs(ang_diff) > 120) {
+            drone->send_command("rc 0 -28 0 0", false);
+            std::this_thread::sleep_for(2s);
+            drone->send_command("stop");
+            std::this_thread::sleep_for(2s);
+            drone->send_command("rc 0 20 0 33", false);
+            std::this_thread::sleep_for(3s);
+            drone->send_command("stop");
+            std::this_thread::sleep_for(2s);
+
+            done = false;
         } else {
-            drone->send_command(
-                "ccw " + std::to_string(static_cast<int>(-ang_diff) + 2));
+            if (ang_diff > 0) {
+                drone->send_command(
+                    "cw " + std::to_string(static_cast<int>(ang_diff) + 2));
+            } else {
+                drone->send_command(
+                    "ccw " + std::to_string(static_cast<int>(-ang_diff) + 2));
+            }
+            std::this_thread::sleep_for(2s);
+            if (abs(ang_diff) > 100) std::this_thread::sleep_for(2s);
         }
-        std::this_thread::sleep_for(2s);
-        if (abs(ang_diff) > 100) std::this_thread::sleep_for(2s);
+
         pose_updated = false;  // TODO: maybe remove?
     }
+
+    return done;
 }
 
 cv::Point3f Navigator::get_last_location() {
@@ -284,24 +228,27 @@ cv::Point3f Navigator::get_last_location() {
 
     Rwc = aligned_pose.rowRange(0, 3).colRange(0, 3).t();
     const cv::Mat& tcw = aligned_pose.rowRange(0, 3).col(3);
-    if (!save_pose) {
-        Auxilary::save_points_to_file(
-            std::vector<cv::Point3f>{cv::Mat(-Rwc * tcw)},
-            data_dir / "pose.xyz");
-
-        save_pose = true;
-    }
     return {cv::Mat(-Rwc * tcw)};
 }
 
 bool Navigator::goto_next_destination() {
     if (current_destination >= destinations.size()) return false;
-    const cv::Point3f& current_dest = destinations[current_destination];
+    goto_point(destinations[current_destination]);
+
+    ++current_destination;
+    return true;
+}
+
+void Navigator::goto_point(const cv::Point3f& p) {
     cv::Point3f last_location;
 
-    while (get_distance_to_destination(last_location = get_last_location(),
-                                       current_dest) > std::pow(0.15, 2)) {
-        rotate_to_destination_angle(last_location, current_dest);
+    while (get_distance_to_destination(last_location = get_last_location(), p) >
+           std::pow(0.15, 2)) {
+        while (!rotate_to_destination_angle(last_location = get_last_location(),
+                                            p)) {
+            ;
+        }
+
         std::this_thread::sleep_for(2s);
         if (pose_updated) {
             drone->send_command("rc 0 30 0 0", false);
@@ -311,17 +258,27 @@ bool Navigator::goto_next_destination() {
     }
 
     drone->send_command("rc 0 0 0 0", false);
-    ++current_destination;
-    return true;
 }
 
 void Navigator::update_plane_of_flight() {
-    // TODO: some dance to dynamically update the plane of flight
+    pose_updated = false;
+    const auto p1 = get_last_location();
+    drone->send_command("right 100");
+    std::this_thread::sleep_for(5s);
+    pose_updated = false;
+    const auto p2 = get_last_location();
+    drone->send_command("forward 100");
+    std::this_thread::sleep_for(5s);
+    pose_updated = false;
+    const auto p3 = get_last_location();
+    pose_updated = false;
 
-    pcl::PointXYZ p1(destinations[0].x, destinations[0].y, destinations[0].z);
-    pcl::PointXYZ p2(destinations[1].x, destinations[1].y, destinations[1].z);
-    pcl::PointXYZ p3(destinations[2].x, destinations[2].y, destinations[2].z);
-    explorer->set_plane_of_flight(p1, p2, p3);
+    Auxilary::save_points_to_file(std::vector<cv::Point3f>{p1, p2, p3},
+                                  data_dir / "plane_points.xyz");
+
+    explorer->set_plane_of_flight(pcl::PointXYZ(p1.x, p1.y, p1.z),
+                                  pcl::PointXYZ(p2.x, p2.y, p2.z),
+                                  pcl::PointXYZ(p3.x, p3.y, p3.z));
 }
 
 bool Navigator::goto_the_unknown() {
@@ -349,37 +306,186 @@ bool Navigator::goto_the_unknown() {
     return true;
 }
 
+void Navigator::get_point_of_interest(
+    const std::vector<Eigen::Matrix<double, 3, 1>>& points,
+    std::promise<pcl::PointXYZ> pof_promise) {
+    // TODO: REPLACE THIS ASAP!
+    Auxilary::save_points_to_file(points, "current_map.xyz");
+
+    std::system(
+        "python3 GreedyBasedChoiceSelection3.py current_map.xyz > out.xyz");
+
+    std::ifstream out_file("out.xyz");
+    std::string res_line;
+    std::getline(out_file, res_line);
+
+    size_t pos = 0;
+    std::string token;
+    pcl::PointXYZ point_of_interest;
+    int index = 0;
+    while ((pos = res_line.find(" ")) != std::string::npos) {
+        token = res_line.substr(0, pos);
+        float token_f = std::stof(token);
+        if (index == 0)
+            point_of_interest.x = token_f;
+        else if (index == 1)
+            point_of_interest.y = token_f;
+        else if (index == 2)
+            point_of_interest.z = token_f;
+        ++index;
+        res_line.erase(0, pos + 1);
+    }
+
+    pof_promise.set_value(point_of_interest);
+}
+
+std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
+    std::size_t path_size) {
+    const auto aligned_points = SLAMUtils::get_aligned_points_from_slam(
+        SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
+        mu_align);
+    explorer->set_cloud_points(aligned_points);
+    if (!explorer->is_set_plane_of_flight()) return {};
+
+    std::promise<pcl::PointXYZ> pof_promise;
+    auto pof_future = pof_promise.get_future();
+    std::thread get_pof(&Navigator::get_point_of_interest, aligned_points,
+                        std::move(pof_promise));
+
+    while (!get_pof.joinable()) {
+        drone->send_command("rc 0 0 0 0", false);
+        std::this_thread::sleep_for(2s);
+    }
+
+    const std::shared_ptr<pcl::PointXYZ> pof(
+        new pcl::PointXYZ(pof_future.get()));
+    get_pof.join();
+    std::cout << "FOUND POINT OF INTEREST!" << std::endl;
+
+    pose_updated = false;
+    const cv::Point3f last_location = get_last_location();
+    std::promise<std::vector<pcl::PointXYZ>> path_promise;
+    auto path_future = path_promise.get_future();
+
+    std::thread get_path_to_unknown(
+        [&](std::promise<std::vector<pcl::PointXYZ>> path_promise) {
+            path_promise.set_value(explorer->get_points_to_unknown(
+                pcl::PointXYZ(last_location.x, last_location.y,
+                              last_location.z),
+                0.001, pof));
+        },
+        std::move(path_promise));
+
+    while (!get_path_to_unknown.joinable()) {
+        drone->send_command("rc 0 0 0 0", false);
+        std::this_thread::sleep_for(2s);
+    }
+
+    std::vector<pcl::PointXYZ> path_to_the_unknown = path_future.get();
+    get_path_to_unknown.join();
+
+    std::cout << "GOT PATH" << std::endl;
+
+    Auxilary::save_points_to_file(
+        path_to_the_unknown,
+        data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
+    Auxilary::save_points_to_file(
+        SLAMUtils::get_aligned_points_from_slam(
+            SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
+            mu_align),
+        data_dir / ("map_for_path" + std::to_string(paths_created) + ".xyz"));
+    if (path_to_the_unknown.size() > path_size) {
+        path_to_the_unknown.resize(path_size);
+    }
+    return path_to_the_unknown;
+}
+
+void Navigator::start_new_map() {
+    const int degrees_to_rotate = 30;
+    const int times_rotate = 360 / degrees_to_rotate;
+    int current_rotate = 0;
+    int multiplier = 1;
+
+    while (current_rotate < (times_rotate + 1)) {
+        ++current_rotate;
+
+        drone->send_command("rc 0 " + std::to_string(multiplier * 0) + " " +
+                                std::to_string(multiplier * 18) + " 15",
+                            false);
+        multiplier *= -1;
+        std::this_thread::sleep_for(5s);
+        drone->send_command("stop");
+        std::this_thread::sleep_for(2s);
+        pose_updated = false;
+        std::this_thread::sleep_for(1s);
+
+        if (!pose_updated) {
+            int back_times = 0;
+
+            while (!pose_updated && back_times < current_rotate) {
+                ++back_times;
+                drone->send_command("rc 0 " + std::to_string(multiplier * 0) +
+                                        " " + std::to_string(multiplier * 18) +
+                                        " -15",
+                                    false);
+                multiplier *= -1;
+                std::this_thread::sleep_for(5s);
+                drone->send_command("stop");
+                std::this_thread::sleep_for(2s);
+                pose_updated = false;
+                std::this_thread::sleep_for(1s);
+            }
+
+            current_rotate -= back_times;
+        }
+    }
+
+    pose_updated = false;
+}
+
 void Navigator::start_navigation(bool use_explorer) {
     update_pose_thread = std::thread(&Navigator::update_pose, this);
 
     std::this_thread::sleep_for(10s);
     drone->send_command("takeoff");
-    drone->send_command("up 55");
-    drone->send_command("rc -10 0 0 -15", false);
-    std::this_thread::sleep_for(3s);
-    drone->send_command("rc 0 0 0 0", false);
+    std::this_thread::sleep_for(2s);
+    drone->send_command("speed 40");
+    std::this_thread::sleep_for(2s);
+    drone->send_command("up 35");
+    std::this_thread::sleep_for(2s);
+    if (existing_map) {
+        drone->send_command("rc -10 0 0 -15", false);
+        std::this_thread::sleep_for(3s);
+        drone->send_command("rc 0 0 0 0", false);
+    } else {
+        start_new_map();
+        end_loop = true;
+    }
 
     {
         std::unique_lock<std::mutex> lk(cv_m);
-        cv.wait(lk, [&] { return started_navigation == true; });
+        cv.wait(lk, [&] { return started_navigation.load(); });
     }
 
-    auto [R_align, mu_align] = get_alignment_matrices(
+    const auto map_points =
         SLAM->GetAtlas()
             ->GetCurrentMap()  // TODO: should we take all the maps?
-            ->GetAllMapPoints());
+            ->GetAllMapPoints();
+    const auto [R_align, mu_align] =
+        SLAMUtils::get_alignment_matrices(map_points);
     this->R_align = R_align;
     this->mu_align = mu_align;
 
-    const auto slam_points = get_points_from_slam();
+    const auto slam_points =
+        SLAMUtils::get_aligned_points_from_slam(map_points, R_align, mu_align);
     if (use_explorer) explorer = std::make_shared<Explorer>(slam_points);
 
     Auxilary::save_points_to_file(slam_points, data_dir / "aligned_points.xyz");
 
     std::transform(destinations.begin(), destinations.end(),
                    destinations.begin(), [&](const auto& p) {
-                       return calc_aligned_point(p, this->R_align,
-                                                 this->mu_align);
+                       return SLAMUtils::calc_aligned_point(p, this->R_align,
+                                                            this->mu_align);
                    });
 
     Auxilary::save_points_to_file(destinations,
