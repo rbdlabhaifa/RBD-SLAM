@@ -1,15 +1,9 @@
 #ifndef PATH_BUILDER_H_
 #define PATH_BUILDER_H_
 
-#undef True
-#undef False
-#define True LEMON_TRUE
-#define False LEMON_FALSE
 #include <lemon/bfs.h>
 #include <lemon/core.h>
 #include <lemon/list_graph.h>
-#undef True
-#undef False
 #include <pcl/PointIndices.h>
 #include <pcl/point_cloud.h>
 
@@ -27,6 +21,9 @@ class PathBuilder {
     const std::size_t how_long_valid_path = 5;
 
     bool debug = true;
+    static pcl::PointXYZ get_point_of_interest(
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
+
     static void get_navigation_points(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ& navigate_starting_point,
@@ -35,7 +32,7 @@ class PathBuilder {
         std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
         std::vector<pcl::PointXYZ>& RRT_graph,
         const std::vector<pcl::PointIndices>& cluster_indices,
-        const std::vector<Auxilary::ConvexHullEquations>& convexhulls,
+        const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons,
         const std::shared_ptr<pcl::PointXYZ>& point_of_interest = nullptr);
 
    public:

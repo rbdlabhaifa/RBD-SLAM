@@ -1,6 +1,6 @@
 #include "path_builder.hpp"
 
-#include <libqhullcpp/Qhull.h>
+#include <Eigen/src/Core/Matrix.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
@@ -10,16 +10,68 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <memory>
+#include <numeric>
 #include <random>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
 #include "auxilary.hpp"
 
+using namespace std::chrono_literals;
+
 using namespace Auxilary;
 
 PathBuilder::PathBuilder(float scale_factor) : scale_factor(scale_factor) {}
+
+pcl::PointXYZ PathBuilder::get_point_of_interest(
+    pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
+    auto points_eigen_alloc = cloud->points;
+    std::vector<pcl::PointXYZ> points(
+        std::make_move_iterator(points_eigen_alloc.begin()),
+        std::make_move_iterator(points_eigen_alloc.end()));
+    const auto [distances, min_val, mean_val] = get_distances(points, points);
+
+    float max_alpha = 0;
+    int max_index = -1;
+    auto R_s = linspace(min_val, mean_val, 10);
+    float* R_s_data = R_s.data();
+    Eigen::VectorXf R_s_eigen =
+        Eigen::Map<Eigen::VectorXf, Eigen::Unaligned>(R_s_data, R_s.size());
+    for (int i = 0; i < cloud->size(); ++i) {
+        // const auto dist_point = distances.col(i);
+        Eigen::VectorXf dist_r(R_s.size());
+
+        for (int j = 0; j < R_s.size(); ++j) {
+            int count = 0;
+            float sum_p = 0;
+
+            for (int k = 0; k < distances.rows(); ++k) {
+                // for (const auto& p : dist_point.rowwise()) {
+                float val = distances(k, i);
+                // float val = p(0);
+                if (val <= R_s[i]) {
+                    ++count;
+                    sum_p += val;
+                }
+            }
+
+            dist_r(j) = count == 0 ? 0 : sum_p / static_cast<float>(count);
+        }
+
+        const auto gradients = gradient(dist_r);
+        const auto alpha = gradients.mean();
+
+        if (alpha > max_alpha) {
+            max_alpha = alpha;
+            max_index = i;
+        }
+    }
+
+    return (*cloud)[max_index];
+}
 
 // TODO: Make this function better, use utility functions
 void PathBuilder::get_navigation_points(
@@ -30,7 +82,7 @@ void PathBuilder::get_navigation_points(
     std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
     std::vector<pcl::PointXYZ>& RRT_points,
     const std::vector<pcl::PointIndices>& cluster_indices,
-    const std::vector<Auxilary::ConvexHullEquations>& convexhulls,
+    const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons,
     const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
@@ -69,11 +121,20 @@ void PathBuilder::get_navigation_points(
     // float jump = 0.2 * scale_factor;
     pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
 
-    auto [cp, d] =
+    auto [cp, span_v1_gs, span_v2_gs, d] =
         get_plane_from_3_points(known_point1, known_point2, known_point3);
 
     for (int i = 0; i < 5000; ++i) {
-        pcl::PointXYZ point_rand = get_random_point_on_plane(cp, d);
+        // pcl::PointXYZ point_rand =
+        //     (i % 3 == 0) ? get_random_point_on_plane(cp, d)
+        //                  : get_random_point_on_plane(
+        //                        navigate_starting_point, *point_of_interest,
+        //                        span_v1_gs, span_v2_gs, cp);
+        pcl::PointXYZ point_rand =
+            // (i % 3 != 0)
+            // ? get_random_point_on_plane(cp, d)
+            get_random_point_on_plane(span_v1_gs, span_v2_gs);
+        // : *point_of_interest;
 
         navigate_tree.setInputCloud(navigate_data);
 
@@ -91,7 +152,7 @@ void PathBuilder::get_navigation_points(
                                         (point_rand - close_point)));
 
             if (is_valid_movement(cloud, close_point, point_new, kdtree,
-                                  scale_factor, convexhulls)) {
+                                  scale_factor, polygons)) {
                 navigate_data->push_back(point_new);
                 v_edges.push_back({point_new, close_point});
 
@@ -139,10 +200,14 @@ void PathBuilder::get_navigation_points(
         navigate_tree.nearestKSearch(
             (*point_of_interest - navigate_starting_point) / 2, 1,
             v_closest_point, v_dist_closest_point);
-    } else {
-        if (point_of_interest == nullptr) {
-            for (int i = 0; i < dist(generator); ++i) ++n;
+
+        if (v_dist_closest_point[0] > 2) {
+            path_to_the_unknown.clear();
+            return;
         }
+
+    } else {
+        for (int i = 0; i < dist(generator); ++i) ++n;
     }
 
     lemon::ListGraph::Node get_random_node_rrt =
@@ -184,22 +249,34 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
     const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
     std::vector<pcl::PointXYZ> path_to_the_unknown;
 
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr kdtree_search(
-        new pcl::search::KdTree<pcl::PointXYZ>);
-    kdtree_search->setInputCloud(cloud);
-    auto cluster_indices = get_clusters(cloud, kdtree_search);
-    const auto convexhulls = get_convexhulls(cloud, cluster_indices);
+    // auto start = std::chrono::steady_clock::now();
+    // auto something = recursive_robust_median_clustering(cloud, 20);
+    // auto end = std::chrono::steady_clock::now();
 
-    while (path_to_the_unknown.size() < how_long_valid_path) {
+    // std::cout
+    //     << "Elapsed time in seconds: "
+    //     << std::chrono::duration_cast<std::chrono::seconds>(end -
+    //     start).count()
+    //     << " sec";
+
+    auto cluster_indices = get_clusters(cloud);
+    auto convexhulls = get_convexhulls(cloud, cluster_indices);
+    std::size_t tries = 30;
+    // std::shared_ptr<pcl::PointXYZ> poi(
+    //     new pcl::PointXYZ(get_point_of_interest(cloud)));
+
+    // while (path_to_the_unknown.size() < how_long_valid_path && tries-- > 0) {
+    while (RRT_points.size() < 5 && tries-- > 0) {
         std::cout << "NOT VALID" << std::endl;
         static std::size_t tries_scale_factor_until_change = tries_scale_factor;
 
         path_to_the_unknown.clear();
+        RRT_points.clear();
 
         get_navigation_points(cloud, start_point, known_point1, known_point2,
                               known_point3, path_to_the_unknown, scale_factor,
                               RRT_points, cluster_indices, convexhulls,
-                              point_of_interest);
+                              nullptr);
 
         // if (tries_scale_factor_until_change == 0) {
         //     scale_factor = scale_factor * (1 - change_scale_factor);
@@ -208,7 +285,16 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
         // }
 
         // --tries_scale_factor_until_change;
+
+        if (tries % 10 == 0) {
+            cluster_indices = get_clusters(cloud);
+            convexhulls = get_convexhulls(cloud, cluster_indices);
+        }
     }
+
+    // if (path_to_the_unknown.size() < how_long_valid_path) {
+    //     path_to_the_unknown.clear();
+    // }
 
     if (debug)
         for (auto point : path_to_the_unknown)

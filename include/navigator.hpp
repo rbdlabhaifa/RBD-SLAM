@@ -36,6 +36,7 @@ class Navigator {
     std::filesystem::path data_dir;
 
     std::size_t current_destination = 0;
+    std::size_t current_dest_point = 0;
 
     std::size_t paths_created = 0;
 
@@ -82,7 +83,8 @@ class Navigator {
 
     static void get_point_of_interest(
         const std::vector<Eigen::Matrix<double, 3, 1>>& points,
-        std::promise<pcl::PointXYZ> pof_promise);
+        std::promise<pcl::PointXYZ> pof_promise, std::size_t last_point,
+        const cv::Point3f& last_location);
 
    public:
     std::shared_ptr<Explorer> explorer;

@@ -8,6 +8,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 add_library(ORB_SLAM3 SHARED IMPORTED)
 set_property(TARGET ORB_SLAM3 PROPERTY IMPORTED_LOCATION
                                        /usr/local/lib/libORB_SLAM3.so)
@@ -23,7 +26,7 @@ find_package(Boost REQUIRED)
 find_package(LEMON REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
 find_package(spdlog REQUIRED)
-find_package(Qhull REQUIRED)
+find_package(GEOS REQUIRED)
 
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
@@ -39,8 +42,9 @@ target_link_libraries(tello_stream PRIVATE ${Boost_LIBRARIES} ctello
 add_library(path_builder src/path_builder.cc src/auxilary.cc)
 target_include_directories(path_builder PRIVATE include)
 target_include_directories(path_builder PRIVATE ${LEMON_INCLUDE_DIR})
-target_link_libraries(path_builder PRIVATE ${LEMON_LIBRARIES} ${PCL_LIBRARIES})
-target_link_libraries(path_builder PUBLIC ${OpenCV_LIBS} Qhull::qhullcpp)
+target_link_libraries(path_builder PRIVATE ${LEMON_LIBRARIES} ${PCL_LIBRARIES}
+                                           GEOS::geos Eigen3::Eigen)
+target_link_libraries(path_builder PUBLIC ${OpenCV_LIBS})
 
 # SLAM Utils
 add_library(slam_utils src/slam_utils.cc)

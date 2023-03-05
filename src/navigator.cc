@@ -189,7 +189,7 @@ bool Navigator::rotate_to_destination_angle(const cv::Point3f& location,
         drone->send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(1s);
 
-        if (!existing_map && abs(ang_diff) > 120) {
+        if (false && !existing_map && abs(ang_diff) > 120) {
             drone->send_command("rc 0 -28 0 0", false);
             std::this_thread::sleep_for(2s);
             drone->send_command("stop");
@@ -308,14 +308,22 @@ bool Navigator::goto_the_unknown() {
 
 void Navigator::get_point_of_interest(
     const std::vector<Eigen::Matrix<double, 3, 1>>& points,
-    std::promise<pcl::PointXYZ> pof_promise) {
+    std::promise<pcl::PointXYZ> pof_promise, std::size_t last_point,
+    const cv::Point3f& last_location) {
     // TODO: REPLACE THIS ASAP!
-    Auxilary::save_points_to_file(points, "current_map.xyz");
+    auto map_filename = "current_map" + std::to_string(last_point) + ".xyz";
+    auto start_filename = "start" + std::to_string(last_point) + ".xyz";
 
-    std::system(
-        "python3 GreedyBasedChoiceSelection3.py current_map.xyz > out.xyz");
+    Auxilary::save_points_to_file(points, map_filename);
+    Auxilary::save_points_to_file({last_location}, start_filename);
 
-    std::ifstream out_file("out.xyz");
+    auto out_filename = "out" + std::to_string(last_point) + ".xyz";
+    auto run_cmd = "python3 DelaunayGreedySearch.py " + map_filename + " " +
+                   start_filename + " > " + out_filename;
+
+    std::system(run_cmd.c_str());
+
+    std::ifstream out_file(out_filename);
     std::string res_line;
     std::getline(out_file, res_line);
 
@@ -341,50 +349,53 @@ void Navigator::get_point_of_interest(
 
 std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
     std::size_t path_size) {
-    const auto aligned_points = SLAMUtils::get_aligned_points_from_slam(
-        SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
-        mu_align);
-    explorer->set_cloud_points(aligned_points);
     if (!explorer->is_set_plane_of_flight()) return {};
 
-    std::promise<pcl::PointXYZ> pof_promise;
-    auto pof_future = pof_promise.get_future();
-    std::thread get_pof(&Navigator::get_point_of_interest, aligned_points,
-                        std::move(pof_promise));
+    std::vector<pcl::PointXYZ> path_to_the_unknown;
 
-    while (!get_pof.joinable()) {
-        drone->send_command("rc 0 0 0 0", false);
-        std::this_thread::sleep_for(2s);
+    while (path_to_the_unknown.empty()) {
+        const auto aligned_points = SLAMUtils::get_aligned_points_from_slam(
+            SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
+            mu_align);
+        explorer->set_cloud_points(aligned_points);
+
+        pose_updated = false;
+        const cv::Point3f last_location = get_last_location();
+
+        std::promise<pcl::PointXYZ> pof_promise;
+        auto pof_future = pof_promise.get_future();
+        std::thread get_pof(&Navigator::get_point_of_interest, aligned_points,
+                            std::move(pof_promise), current_dest_point++,
+                            last_location);
+
+        do {
+            drone->send_command("rc 0 0 0 0", false);
+        } while (pof_future.wait_for(2s) != std::future_status::ready);
+
+        const std::shared_ptr<pcl::PointXYZ> pof(
+            new pcl::PointXYZ(pof_future.get()));
+        get_pof.join();
+        std::cout << "FOUND POINT OF INTEREST!" << std::endl;
+
+        std::promise<std::vector<pcl::PointXYZ>> path_promise;
+        auto path_future = path_promise.get_future();
+
+        std::thread get_path_to_unknown(
+            [&](std::promise<std::vector<pcl::PointXYZ>> path_promise) {
+                path_promise.set_value(explorer->get_points_to_unknown(
+                    pcl::PointXYZ(last_location.x, last_location.y,
+                                  last_location.z),
+                    0.001, pof));
+            },
+            std::move(path_promise));
+
+        do {
+            drone->send_command("rc 0 0 0 0", false);
+        } while (path_future.wait_for(2s) != std::future_status::ready);
+
+        path_to_the_unknown = path_future.get();
+        get_path_to_unknown.join();
     }
-
-    const std::shared_ptr<pcl::PointXYZ> pof(
-        new pcl::PointXYZ(pof_future.get()));
-    get_pof.join();
-    std::cout << "FOUND POINT OF INTEREST!" << std::endl;
-
-    pose_updated = false;
-    const cv::Point3f last_location = get_last_location();
-    std::promise<std::vector<pcl::PointXYZ>> path_promise;
-    auto path_future = path_promise.get_future();
-
-    std::thread get_path_to_unknown(
-        [&](std::promise<std::vector<pcl::PointXYZ>> path_promise) {
-            path_promise.set_value(explorer->get_points_to_unknown(
-                pcl::PointXYZ(last_location.x, last_location.y,
-                              last_location.z),
-                0.001, pof));
-        },
-        std::move(path_promise));
-
-    while (!get_path_to_unknown.joinable()) {
-        drone->send_command("rc 0 0 0 0", false);
-        std::this_thread::sleep_for(2s);
-    }
-
-    std::vector<pcl::PointXYZ> path_to_the_unknown = path_future.get();
-    get_path_to_unknown.join();
-
-    std::cout << "GOT PATH" << std::endl;
 
     Auxilary::save_points_to_file(
         path_to_the_unknown,
@@ -394,6 +405,9 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
             SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
             mu_align),
         data_dir / ("map_for_path" + std::to_string(paths_created) + ".xyz"));
+
+    std::cout << "GOT PATH" << std::endl;
+
     if (path_to_the_unknown.size() > path_size) {
         path_to_the_unknown.resize(path_size);
     }
@@ -459,6 +473,7 @@ void Navigator::start_navigation(bool use_explorer) {
         drone->send_command("rc 0 0 0 0", false);
     } else {
         start_new_map();
+        // SLAM->ChangeMapMerging(true);
         end_loop = true;
     }
 
