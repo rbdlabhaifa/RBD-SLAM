@@ -41,7 +41,7 @@ using namespace std::chrono_literals;
 void visualizer_cloud_and_path(
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, float ScaleFactor,
-    std::vector<pcl::PointXYZ> path_to_unknown
+    std::vector<std::vector<pcl::PointXYZ>> paths
 
 ) {
     pcl::visualization::PCLVisualizer::Ptr viewer(
@@ -112,19 +112,25 @@ void visualizer_cloud_and_path(
     }
 
     int index = 0;
-    for (std::size_t i = 0; i < path_to_unknown.size(); ++i) {
-        std::stringstream ss;
-        ss << "PointNavigatePath" << index;
-        viewer->addSphere(path_to_unknown[i], 0.08, 0.1, 0.2, 0.9, ss.str());
-        index++;
-    }
-    if (!path_to_unknown.empty()) {
-        viewer->addSphere(path_to_unknown.front(), 0.05, 0.9, 0.2, 0.2,
-                          "Starting Point");
-    }
+    for (std::size_t i = 0; i < paths.size(); ++i) {
+        for (std::size_t j = 0; j < paths[i].size(); ++j) {
+            std::stringstream ss;
+            ss << "PointNavigatePath" << i << j;
+            viewer->addSphere(paths[i][j], 0.08, 0.1, 0.2, 0.9, ss.str());
+            if (j > 0) {
+                viewer->addLine(
+                    paths[i][j - 1], paths[i][j], 0.1, 0.2, 0.9,
+                    "arrow" + std::to_string(i) + std::to_string(j));
+            }
+            // index++;
+        }
+        // if (!paths[i].empty()) {
+        //     viewer->addSphere(paths[i].front(), 0.05, 0.9, 0.2, 0.2,
+        //                       "Starting Point" + std::to_string(i));
+        // }
 
-    int data = 0;
-
+        int data = 0;
+    }
     while (!viewer->wasStopped()) {
         viewer->spinOnce();
         std::this_thread::sleep_for(5ms);
@@ -205,37 +211,34 @@ int main(int argc, char** argv) {  // TODO : Redo the point Enter !!!
     //     cloud, scale_factor,
     //     std::vector<pcl::PointXYZ>{(*plane)[0], (*plane)[1], (*plane)[2]});
 
-    for (int i = 0; i < 30; ++i) {
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(
-            new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr plane(
-            new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr start_point(
-            new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr target_point(
-            new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::io::loadPCDFile<pcl::PointXYZ>(argv[1], *cloud);
-        // pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sorfilter(
-        //     true);  // Initializing with true will allow us to extract the
-        //             // removed
-        // // indices
-        // sorfilter.setInputCloud(cloud);
-        // sorfilter.setMeanK(8);
-        // sorfilter.setStddevMulThresh(1.0);
-        // sorfilter.filter(*cloud_out);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr target_point(
+        new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::io::loadPCDFile<pcl::PointXYZ>(argv[1], *cloud);
+    // pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sorfilter(
+    //     true);  // Initializing with true will allow us to extract the
+    //             // removed
+    // // indices
+    // sorfilter.setInputCloud(cloud);
+    // sorfilter.setMeanK(8);
+    // sorfilter.setStddevMulThresh(1.0);
+    // sorfilter.filter(*cloud_out);
 
-        // cloud = cloud_out;
-        pcl::io::loadPCDFile<pcl::PointXYZ>(argv[2], *plane);
-        pcl::io::loadPCDFile<pcl::PointXYZ>(argv[3], *start_point);
-        pcl::io::loadPCDFile<pcl::PointXYZ>(argv[5], *target_point);
-        std::shared_ptr<pcl::PointXYZ> p(new pcl::PointXYZ((*target_point)[0]));
-        Explorer explorer(cloud);
-        explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);
+    // cloud = cloud_out;
+    pcl::io::loadPCDFile<pcl::PointXYZ>(argv[2], *plane);
+    pcl::io::loadPCDFile<pcl::PointXYZ>(argv[3], *start_point);
+    pcl::io::loadPCDFile<pcl::PointXYZ>(argv[5], *target_point);
+    std::shared_ptr<pcl::PointXYZ> p(new pcl::PointXYZ((*target_point)[0]));
+    Explorer explorer(cloud);
+    explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);
+    for (int i = 0; i < 30; ++i) {
         auto path =
             explorer.get_points_to_unknown((*start_point)[0], 0.001, nullptr);
         auto graph = explorer.get_last_graph();
         std::cout << "GSIZE " << graph.size() << std::endl;
-        visualizer_cloud_and_path(cloud, scale_factor, graph);
+        visualizer_cloud_and_path(cloud, scale_factor, {path});
+        visualizer_cloud_and_path(cloud, scale_factor, {graph});
+
+        visualizer_cloud_and_path(cloud, scale_factor, explorer.best_paths);
     }
 
     // visualizer_cloud_and_path(cloud, scale_factor, path);

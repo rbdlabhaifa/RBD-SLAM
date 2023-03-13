@@ -78,7 +78,7 @@ class Navigator {
      * @brief Rotate the drone until it's caught features
      */
     void rotate_to_relocalize();
-    bool rotate_to_destination_angle(const cv::Point3f& location,
+    void rotate_to_destination_angle(const cv::Point3f& location,
                                      const cv::Point3f& destination);
 
     static void get_point_of_interest(
@@ -104,7 +104,7 @@ class Navigator {
     ~Navigator();
 
     void start_navigation(bool use_explorer = true);
-    void start_new_map();
+    void get_features_by_rotating();
 
     bool goto_next_destination();
     bool goto_the_unknown();

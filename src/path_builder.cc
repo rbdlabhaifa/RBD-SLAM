@@ -1,10 +1,15 @@
 #include "path_builder.hpp"
 
-#include <Eigen/src/Core/Matrix.h>
+#include <geos/geom/GeometryFactory.h>
+#include <geos/geom/PrecisionModel.h>
+#include <lemon/core.h>
+#include <lemon/list_graph.h>
+#include <lemon/path.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -20,11 +25,263 @@
 
 #include "auxilary.hpp"
 
-using namespace std::chrono_literals;
-
 using namespace Auxilary;
 
 PathBuilder::PathBuilder(float scale_factor) : scale_factor(scale_factor) {}
+
+std::size_t PathBuilder::get_last_change(
+    const std::vector<std::vector<std::size_t>>& polygon_idxs) {
+    auto p_idxs = polygon_idxs;
+
+    std::for_each(p_idxs.begin(), p_idxs.end(),
+                  [](auto& idxs) { std::sort(idxs.begin(), idxs.end()); });
+
+    std::size_t last_change = 1;
+
+    while (last_change < p_idxs.size() &&
+           p_idxs[last_change] != p_idxs[last_change - 1]) {
+        ++last_change;
+    }
+
+    return last_change - 1;
+}
+
+std::vector<std::vector<pcl::PointXYZ>> PathBuilder::get_all_paths_to_leaves(
+    const lemon::ListDigraph& graph,
+    const lemon::ListDigraph::NodeMap<pcl::PointXYZ>& node_map,
+    const lemon::ListDigraph::Node& start_node) {
+    std::vector<std::vector<pcl::PointXYZ>> paths;
+
+    std::size_t amount = 0;
+
+    lemon::Dfs<lemon::ListDigraph> dfs(graph);
+    dfs.init();
+    dfs.addSource(start_node);
+    dfs.start();
+
+    std::size_t leaves = 0;
+    std::size_t reached = 0;
+
+    for (lemon::ListDigraph::NodeIt it(graph); it != lemon::INVALID; ++it) {
+        if (lemon::countOutArcs(graph, it) != 0) {
+            continue;
+        }
+
+        ++leaves;
+
+        std::vector<pcl::PointXYZ> current_path;
+        current_path.insert(current_path.begin(), node_map[it]);
+
+        auto prev = dfs.predNode(it);
+
+        while (prev != lemon::INVALID) {
+            current_path.insert(current_path.begin(), node_map[prev]);
+            prev = dfs.predNode(prev);
+        }
+
+        paths.push_back(current_path);
+    }
+
+    std::cout << leaves << " LEAVES from " << lemon::countNodes(graph)
+              << std::endl;
+
+    return paths;
+}
+
+std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>
+PathBuilder::get_top_k_polygon_distances(
+    const std::vector<pcl::PointXYZ>& path,
+    const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons, int k) {
+    std::unique_ptr<geos::geom::PrecisionModel> pm(
+        new geos::geom::PrecisionModel());
+    auto geos_factory = geos::geom::GeometryFactory::create();
+
+    std::vector<double> distances;
+    std::vector<std::vector<std::size_t>> polygons_idxs;
+
+    for (const auto& p : path) {
+        std::vector<double> current_distances;
+
+        std::transform(polygons.begin(), polygons.end(),
+                       std::back_inserter(current_distances),
+                       [&](const auto& poly) {
+                           return poly->distance(
+                               geos_factory->createPoint({p.x, p.y, p.z}));
+                       });
+
+        // TODO: maybe we dont need to sort all distances
+        auto current_idxs = argsort(current_distances);
+
+        for (std::size_t i = 0; i < k; ++i) {
+            current_distances[i] = current_distances[current_idxs[i]];
+        }
+
+        distances.emplace_back(std::accumulate(current_distances.begin(),
+                                               current_distances.begin() + k,
+                                               0.) /
+                               k);
+        polygons_idxs.emplace_back(current_idxs.begin(),
+                                   current_idxs.begin() + k);
+    }
+
+    return {distances, polygons_idxs};
+}
+
+// Implementation taken from
+// https://github.com/numpy/numpy-financial/blob/main/numpy_financial/_financial.py
+Eigen::VectorXd PathBuilder::g_div_gp(const Eigen::VectorXd& fv,
+                                      const Eigen::VectorXd& pv,
+                                      const Eigen::VectorXd& rn, int w,
+                                      int nper, int pmt) {
+    const auto& fv_arr = fv.array();
+    const auto& pv_arr = pv.array();
+    const auto& rn_arr = rn.array();
+
+    Eigen::VectorXd g;
+    Eigen::VectorXd gp;
+
+    if (rn_arr.size() == 1) {
+        auto t1 = std::pow(rn_arr[0] + 1, nper);
+        auto t2 = std::pow(rn_arr[0] + 1, nper - 1);
+
+        g = fv_arr + t1 * pv_arr +
+            pmt * (t1 - 1) * (rn_arr[0] * w + 1) / rn_arr[0];
+        gp = nper * t2 * pv_arr -
+             pmt * (t1 - 1) * (rn_arr[0] * w + 1) / std::pow(rn_arr[0], 2) +
+             nper * pmt * t2 * (rn_arr[0] * w + 1) / rn_arr[0] +
+             pmt * (t1 - 1) * w / rn_arr[0];
+    } else {
+        auto t1 = (rn_arr + 1).pow(nper);
+        auto t2 = (rn_arr + 1).pow(nper - 1);
+
+        g = fv_arr + t1 * pv_arr + pmt * (t1 - 1) * (rn_arr * w + 1) / rn_arr;
+        gp = nper * t2 * pv_arr -
+             pmt * (t1 - 1) * (rn_arr * w + 1) / rn_arr.pow(2) +
+             nper * pmt * t2 * (rn_arr * w + 1) / rn_arr +
+             pmt * (t1 - 1) * w / rn_arr;
+    }
+
+    return g.array() / gp.array();
+}
+
+std::vector<std::vector<double>> PathBuilder::split_distances(
+    const std::vector<double>& distances) {
+    std::vector<std::vector<double>> distances_parts;
+
+    int sign = 0;
+    std::size_t start = 0;
+    std::size_t end = 0;
+    bool get_part = false;
+
+    for (std::size_t i = 0; i < distances.size() - 1; ++i) {
+        if (distances[i] <= distances[i + 1]) {
+            get_part = sign == -1;
+
+            if (sign == 0) {
+                sign = 1;
+                start = i;
+            }
+        } else {
+            get_part = sign == 1;
+
+            if (sign == 0) {
+                sign = -1;
+                start = i;
+            }
+        }
+
+        if (get_part) {
+            sign = 0;
+            distances_parts.emplace_back(distances.begin() + start,
+                                         distances.begin() + i + 1);
+            start = i;
+        }
+
+        get_part = false;
+    }
+
+    distances_parts.emplace_back(distances.begin() + start, distances.end());
+
+    return distances_parts;
+}
+
+double PathBuilder::get_path_rate(const std::vector<double>& distances) {
+    if (distances.size() == 1) {
+        return 0;
+    }
+
+    const double guess = 0.1;
+    const int nper = 1;
+    const int pmt = 0;
+    const int maxiter = 100;
+    const double tol = 1e-6;
+
+    const auto distances_parts = split_distances(distances);
+    std::vector<double> rates;
+
+    std::transform(
+        distances_parts.begin(), distances_parts.end(),
+        std::back_inserter(rates), [&](const auto& part) -> double {
+            if (part.size() == 1) {
+                return 0;
+            }
+
+            auto dist_copy = part;
+            Eigen::VectorXd pv = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(
+                dist_copy.data(), dist_copy.size());
+            Eigen::VectorXd fv(pv);
+
+            remove_row(pv, pv.size() - 1);
+            remove_row(fv, 0);
+
+            pv = -pv;
+            Eigen::VectorXd rn(1);
+            rn << guess;
+
+            Eigen::Array<bool, Eigen::Dynamic, 1> close(1);
+            close << false;
+
+            const int w = 0;
+
+            for (int i = 0; i < maxiter && !close.all(); ++i) {
+                if (rn.size() == 1) {
+                    Eigen::ArrayXd rnp1 =
+                        -g_div_gp(fv, pv, rn, w, nper, pmt).array() + rn[0];
+
+                    Eigen::ArrayXd diff = rnp1 - rn[0];
+                    diff = diff.abs();
+                    rn = rnp1;
+                    close = diff < tol;
+                } else {
+                    Eigen::ArrayXd rnp1 =
+                        -g_div_gp(fv, pv, rn, w, nper, pmt).array() +
+                        rn.array();
+
+                    Eigen::ArrayXd diff = rnp1 - rn.array();
+
+                    diff = diff.abs();
+                    rn = rnp1;
+                    close = diff < tol;
+                }
+            }
+
+            if (!close.all()) {
+                return 0;
+            }
+
+            return rn.mean();
+        });
+
+    if (!rates.empty()) {
+        const auto& max_rate = std::max_element(rates.begin(), rates.end());
+
+        if (std::distance(rates.begin(), max_rate) == rates.size() - 1) {
+            return *max_rate;
+        }
+    }
+
+    return 0;
+}
 
 pcl::PointXYZ PathBuilder::get_point_of_interest(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
@@ -90,8 +347,8 @@ void PathBuilder::get_navigation_points(
     pcl::PointCloud<pcl::PointXYZ>::Ptr RRT_cloud(
         new pcl::PointCloud<pcl::PointXYZ>);
 
-    lemon::ListGraph RRT_graph;
-    lemon::ListGraph::NodeMap<pcl::PointXYZ> node_to_point(RRT_graph);
+    lemon::ListDigraph RRT_graph;
+    lemon::ListDigraph::NodeMap<pcl::PointXYZ> node_to_point(RRT_graph);
     auto comp_func = [](const pcl::PointXYZ& lhs, const pcl::PointXYZ& rhs) {
         return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
     };
@@ -102,7 +359,7 @@ void PathBuilder::get_navigation_points(
         boost::hash_combine(seed, p.z);
         return seed;
     };
-    std::unordered_map<pcl::PointXYZ, lemon::ListGraph::Node,
+    std::unordered_map<pcl::PointXYZ, lemon::ListDigraph::Node,
                        decltype(hash_func), decltype(comp_func)>
         point_to_node(8, hash_func, comp_func);
 
@@ -112,28 +369,33 @@ void PathBuilder::get_navigation_points(
         new pcl::PointCloud<pcl::PointXYZ>);
 
     navigate_data->push_back(navigate_starting_point);
-    lemon::ListGraph::Node first_node = RRT_graph.addNode();
+    lemon::ListDigraph::Node first_node = RRT_graph.addNode();
 
     node_to_point[first_node] = navigate_starting_point;
     point_to_node[navigate_starting_point] = first_node;
 
-    float jump = 0.2;
+    float jump = 0.3;
     // float jump = 0.2 * scale_factor;
     pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
 
-    auto [cp, span_v1_gs, span_v2_gs, d] =
-        get_plane_from_3_points(known_point1, known_point2, known_point3);
+    pcl::PointXYZ plane_mean = (known_point1 + known_point2 + known_point3) / 3;
 
-    for (int i = 0; i < 5000; ++i) {
+    auto [cp, span_v1_gs, span_v2_gs, d] = get_plane_from_3_points(
+        known_point1 - plane_mean, known_point2 - plane_mean,
+        known_point3 - plane_mean);
+
+    int rrt_size = 0;
+    for (int i = 0; i < 4000; ++i) {
         // pcl::PointXYZ point_rand =
         //     (i % 3 == 0) ? get_random_point_on_plane(cp, d)
         //                  : get_random_point_on_plane(
-        //                        navigate_starting_point, *point_of_interest,
-        //                        span_v1_gs, span_v2_gs, cp);
+        //                        navigate_starting_point,
+        //                        *point_of_interest, span_v1_gs,
+        //                        span_v2_gs, cp);
         pcl::PointXYZ point_rand =
             // (i % 3 != 0)
             // ? get_random_point_on_plane(cp, d)
-            get_random_point_on_plane(span_v1_gs, span_v2_gs);
+            get_random_point_on_plane(span_v1_gs, span_v2_gs) + plane_mean;
         // : *point_of_interest;
 
         navigate_tree.setInputCloud(navigate_data);
@@ -156,25 +418,24 @@ void PathBuilder::get_navigation_points(
                 navigate_data->push_back(point_new);
                 v_edges.push_back({point_new, close_point});
 
-                lemon::ListGraph::Node new_node = RRT_graph.addNode();
-                node_to_point[new_node] = point_new;
-                point_to_node[point_new] = new_node;
-
-                lemon::ListGraph::Node closest_point_RRT;
-
-                for (lemon::ListGraph::NodeIt it(RRT_graph);
+                for (lemon::ListDigraph::NodeIt it(RRT_graph);
                      it != lemon::INVALID; ++it) {
-                    if (node_to_point[it] == close_point)
-                        closest_point_RRT = it;
+                    if (node_to_point[it] == close_point) {
+                        lemon::ListDigraph::Node new_node = RRT_graph.addNode();
+                        node_to_point[new_node] = point_new;
+                        point_to_node[point_new] = new_node;
+                        RRT_graph.addArc(it, new_node);
+                        ++rrt_size;
+                        break;
+                    }
                 }
-
-                lemon::ListGraph::Edge new_edge =
-                    RRT_graph.addEdge(new_node, closest_point_RRT);
             }
         } else {
             std::cout << "Cannot find Nearest Node" << std::endl;
         }
     }
+
+    std::cout << "FINISHED RRT with size " << rrt_size << std::endl;
 
     std::chrono::steady_clock::time_point end =
         std::chrono::steady_clock::now();
@@ -187,10 +448,90 @@ void PathBuilder::get_navigation_points(
     std::mt19937 generator(seed);
     std::uniform_int_distribution<uint_least32_t> dist(
         1, lemon::countNodes(RRT_graph) - 2);
-    lemon::ListGraph::NodeIt n(RRT_graph);
+    lemon::ListDigraph::NodeIt n(RRT_graph);
 
     std::vector<int> v_closest_point(1);
     std::vector<float> v_dist_closest_point(1);
+
+    const auto paths =
+        get_all_paths_to_leaves(RRT_graph, node_to_point, first_node);
+
+    // return;
+
+    std::vector<
+        std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>>
+        polygon_distances;
+
+    std::transform(paths.begin(), paths.end(),
+                   std::back_inserter(polygon_distances),
+                   [&](const auto& path) {
+                       return get_top_k_polygon_distances(path, polygons);
+                   });
+
+    std::vector<double> rates;
+
+    std::transform(polygon_distances.begin(), polygon_distances.end(),
+                   std::back_inserter(rates), [](const auto& distances) {
+                       return get_path_rate(std::get<0>(distances));
+                   });
+
+    const auto rate_indices = argsort(rates, true);
+
+    const auto& max_distances = polygon_distances[rate_indices[0]];
+    if (std::get<0>(max_distances).size() < how_long_valid_path) {
+        path_to_the_unknown.clear();
+        return;
+    }
+
+    const auto parts = split_distances(std::get<0>(max_distances));
+
+    for (const auto& part : parts) {
+        std::cout << "PART:" << std::endl;
+        for (const auto& d : part) {
+            std::cout << d << std::endl;
+        }
+    }
+
+    std::transform(rate_indices.begin(), rate_indices.begin() + 10,
+                   std::back_inserter(best_paths),
+                   [&](const auto& ind) { return paths[ind]; });
+
+    // const auto max_path =
+    //     std::max_element(polygon_distances.begin(), polygon_distances.end(),
+    //                      [](const auto& distances_a, const auto& distances_b)
+    //                      {
+    //                          return get_path_rate(std::get<0>(distances_a)) <
+    //                                 get_path_rate(std::get<0>(distances_b));
+    //                      });
+
+    std::cout << "Rate of " << get_path_rate(std::get<0>(max_distances))
+              << " is the max" << std::endl;
+
+    std::cout << "Distances:" << std::endl;
+    std::for_each(std::get<0>(max_distances).begin(),
+                  std::get<0>(max_distances).end(),
+                  [](const auto& ds) { std::cout << ds << std::endl; });
+
+    path_to_the_unknown = paths[rate_indices[0]];
+
+    std::size_t original_size = path_to_the_unknown.size();
+
+    // path_to_the_unknown = {path_to_the_unknown.begin(),
+    //                        path_to_the_unknown.begin() +
+    //                            get_last_change(std::get<1>(max_distances))};
+
+    path_to_the_unknown = {
+        path_to_the_unknown.begin(),
+        path_to_the_unknown.end() - parts[parts.size() - 1].size()};
+
+    std::cout << "Path of size " << path_to_the_unknown.size() << " out of "
+              << original_size << std::endl;
+
+    for (lemon::ListDigraph::NodeIt it(RRT_graph); it != lemon::INVALID; ++it) {
+        RRT_points.push_back(node_to_point[it]);
+    }
+
+    return;
 
     if (point_of_interest != nullptr) {
         std::cout << *point_of_interest << std::endl;
@@ -210,13 +551,13 @@ void PathBuilder::get_navigation_points(
         for (int i = 0; i < dist(generator); ++i) ++n;
     }
 
-    lemon::ListGraph::Node get_random_node_rrt =
+    lemon::ListDigraph::Node get_random_node_rrt =
         point_of_interest == nullptr
             ? n
             : point_to_node[(*navigate_data)[v_closest_point[0]]];
 
     // BFS
-    lemon::Bfs<lemon::ListGraph> bfs(RRT_graph);
+    lemon::Bfs<lemon::ListDigraph> bfs(RRT_graph);
     bfs.init();
     bfs.addSource(first_node);
     bfs.start();
@@ -225,7 +566,7 @@ void PathBuilder::get_navigation_points(
         path_to_the_unknown.insert(path_to_the_unknown.begin(),
                                    node_to_point[get_random_node_rrt]);
 
-        lemon::ListGraph::Node prev = bfs.predNode(get_random_node_rrt);
+        lemon::ListDigraph::Node prev = bfs.predNode(get_random_node_rrt);
 
         while (prev != lemon::INVALID) {
             path_to_the_unknown.insert(path_to_the_unknown.begin(),
@@ -234,7 +575,7 @@ void PathBuilder::get_navigation_points(
         }
     }
 
-    for (lemon::ListGraph::NodeIt it(RRT_graph); it != lemon::INVALID; ++it) {
+    for (lemon::ListDigraph::NodeIt it(RRT_graph); it != lemon::INVALID; ++it) {
         RRT_points.push_back(node_to_point[it]);
     }
 
@@ -265,8 +606,9 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
     // std::shared_ptr<pcl::PointXYZ> poi(
     //     new pcl::PointXYZ(get_point_of_interest(cloud)));
 
-    // while (path_to_the_unknown.size() < how_long_valid_path && tries-- > 0) {
-    while (RRT_points.size() < 5 && tries-- > 0) {
+    // while (path_to_the_unknown.size() < how_long_valid_path && tries-- >
+    // 0) {
+    while (path_to_the_unknown.empty() && tries-- > 0) {
         std::cout << "NOT VALID" << std::endl;
         static std::size_t tries_scale_factor_until_change = tries_scale_factor;
 

@@ -12,19 +12,12 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <numeric>
 #include <opencv2/core/types.hpp>
 #include <pcl/impl/point_types.hpp>
 #include <vector>
 
 namespace Auxilary {
-    struct FacetPlane {
-        pcl::PointXYZ normal;
-        double offset = 0;
-    };
-    struct ConvexHullEquations {
-        std::vector<FacetPlane> facets_planes;
-    };
-
     struct Edge {
         pcl::PointXYZ p1;
         pcl::PointXYZ p2;
@@ -82,9 +75,6 @@ namespace Auxilary {
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const std::vector<pcl::PointIndices>& cluster_indices);
 
-    std::vector<std::unique_ptr<geos::geom::Geometry>> get_polygons(
-        const std::vector<std::vector<pcl::PointXYZ>>& points);
-
     pcl::PointXYZ vec_to_pcl(std::vector<double> vec);
 
     bool is_valid_movement(
@@ -93,17 +83,9 @@ namespace Auxilary {
         const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree, float scale_factor,
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons);
 
-    bool check_convexhull_intersection(const pcl::PointXYZ& p,
-                                       const ConvexHullEquations& convexhull,
-                                       double tolerance = 1e-12);
-
     bool check_polygon_intersection(
         const pcl::PointXYZ& start, const pcl::PointXYZ& end,
         const std::unique_ptr<geos::geom::Geometry>& polygon);
-
-    bool check_convexhull_intersection(const pcl::PointXYZ& start,
-                                       const pcl::PointXYZ& end,
-                                       const ConvexHullEquations& convexhull);
 
     template <typename T>
     std::vector<T> linspace(T a, T b, std::size_t N) {
@@ -133,33 +115,87 @@ namespace Auxilary {
         const pcl::PointXYZ& cp);
 
     template <typename T>
-    std::vector<std::size_t> argsort(const std::vector<T>& vec);
+    std::vector<std::size_t> argsort(const std::vector<T>& vec,
+                                     bool reverse = false) {
+        std::vector<size_t> indices(vec.size());
+        std::iota(indices.begin(), indices.end(), 0);
+        std::sort(indices.begin(), indices.end(),
+                  [&vec, &reverse](auto left, auto right) {
+                      return reverse ? vec[left] > vec[right]
+                                     : vec[left] < vec[right];
+                  });
+
+        return indices;
+    }
+
+    template <typename T>
+    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
+        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
+        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
+        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
+
+        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
+            block_mat(i) = vec(indices[i]);
+        }
+
+        return block_mat;
+    }
 
     template <typename T>
     void remove_row(Eigen::Matrix<T, Eigen::Dynamic, 1>& matrix,
-                    Eigen::Index rowToRemove);
+                    Eigen::Index rowToRemove) {
+        Eigen::Index numRows = matrix.rows() - 1;
+        Eigen::Index numCols = matrix.cols();
 
-    std::vector<float> sum_rows(const Eigen::VectorXf& mat);
+        if (rowToRemove < numRows) {
+            matrix.block(rowToRemove, 0, numRows - rowToRemove, numCols) =
+                matrix.block(rowToRemove + 1, 0, numRows - rowToRemove,
+                             numCols);
+        }
+
+        matrix.conservativeResize(numRows, numCols);
+    }
 
     template <typename T>
     Eigen::Matrix<T, Eigen::Dynamic, 1> get_all_indices_except(
         const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices);
+        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
+        auto block_vec = vec;
 
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices);
+        for (Eigen::Index i = 0; i < indices.size(); ++i) {
+            remove_row(block_vec, indices[i]);
+        }
 
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const std::vector<std::size_t>& indices);
+        return block_vec;
+    }
 
     template <typename T>
     std::vector<T> get_indices(
         const std::vector<T>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices);
+        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
+        std::vector<T> v_block(indices.size());
+
+        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
+            v_block[i] = vec[indices[i]];
+        }
+
+        return v_block;
+    }
+
+    template <typename T>
+    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
+        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
+        const std::vector<std::size_t>& indices) {
+        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
+
+        for (Eigen::Index i = 0; i < indices.size(); ++i) {
+            block_mat(i) = vec(indices[i]);
+        }
+
+        return block_mat;
+    }
+
+    std::vector<float> sum_rows(const Eigen::VectorXf& mat);
 
     void delaunay_greedy_based_picking(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);

@@ -18,6 +18,7 @@ class Explorer {
         const std::vector<Eigen::Matrix<double, 3, 1>>& map_points);
 
     explicit Explorer(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud);
+    std::vector<std::vector<pcl::PointXYZ>> best_paths;
 
     void add_points_to_cloud(
         const std::vector<Eigen::Matrix<double, 3, 1>>& map_points);

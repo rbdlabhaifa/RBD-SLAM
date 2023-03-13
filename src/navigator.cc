@@ -127,8 +127,10 @@ void Navigator::update_pose() {
                 timestamp - start_time)
                 .count());
 
-        if (!pose_updated &&
-            SLAM->GetTrackingState() == ORB_SLAM3::Tracking::OK) {
+        const auto current_state = SLAM->GetTrackingState();
+
+        if (!pose_updated && current_state != ORB_SLAM3::Tracking::LOST &&
+            current_state != ORB_SLAM3::Tracking::RECENTLY_LOST) {
             if (!started_navigation) {
                 if (end_loop) {
                     SLAM->ActivateLocalizationMode();
@@ -161,18 +163,27 @@ float Navigator::get_distance_to_destination(const cv::Point3f& p1,
 }
 
 void Navigator::rotate_to_relocalize() {
-    drone->send_command("rc 0 0 0 0", false);
-    std::this_thread::sleep_for(1s);
-    while (!pose_updated) {
-        drone->send_command("cw 30");
+    bool need_to_stop = false;  // TODO: we can check pose_updated but sometimes
+                                // we get something like a race condition
 
-        std::this_thread::sleep_for(3s);
+    while (!pose_updated) {
+        need_to_stop = true;
+
+        drone->send_command("rc 0 0 0 0", false);
+        std::this_thread::sleep_for(2s);
+
+        drone->send_command("rc 0 0 0 15", false);
+        std::this_thread::sleep_for(2s);
+    }
+
+    if (need_to_stop) {
+        drone->send_command("rc 0 0 0 0", false);
+        std::this_thread::sleep_for(2s);
     }
 }
 
-bool Navigator::rotate_to_destination_angle(const cv::Point3f& location,
+void Navigator::rotate_to_destination_angle(const cv::Point3f& location,
                                             const cv::Point3f& destination) {
-    bool done = true;
     // Get angle from Rwc
     cv::Point3f angles = rotation_matrix_to_euler_angles(Rwc);
     float angle1 = angles.z + 90;
@@ -189,37 +200,33 @@ bool Navigator::rotate_to_destination_angle(const cv::Point3f& location,
         drone->send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(1s);
 
-        if (false && !existing_map && abs(ang_diff) > 120) {
-            drone->send_command("rc 0 -28 0 0", false);
-            std::this_thread::sleep_for(2s);
-            drone->send_command("stop");
-            std::this_thread::sleep_for(2s);
-            drone->send_command("rc 0 20 0 33", false);
-            std::this_thread::sleep_for(3s);
-            drone->send_command("stop");
-            std::this_thread::sleep_for(2s);
+        // TODO: add slow rotation for large degrees
 
-            done = false;
+        if (ang_diff > 0) {
+            drone->send_command("cw " +
+                                std::to_string(static_cast<int>(ang_diff) + 2));
         } else {
-            if (ang_diff > 0) {
-                drone->send_command(
-                    "cw " + std::to_string(static_cast<int>(ang_diff) + 2));
-            } else {
-                drone->send_command(
-                    "ccw " + std::to_string(static_cast<int>(-ang_diff) + 2));
-            }
-            std::this_thread::sleep_for(2s);
-            if (abs(ang_diff) > 100) std::this_thread::sleep_for(2s);
+            drone->send_command(
+                "ccw " + std::to_string(static_cast<int>(-ang_diff) + 2));
         }
+        std::this_thread::sleep_for(2s);
+        if (abs(ang_diff) > 100) std::this_thread::sleep_for(2s);
 
         pose_updated = false;  // TODO: maybe remove?
     }
-
-    return done;
 }
 
 cv::Point3f Navigator::get_last_location() {
-    if (!pose_updated) rotate_to_relocalize();
+    if (!pose_updated) {
+        std::this_thread::sleep_for(
+            2s);  // Sleep first if the pose isn't updated
+    }
+
+    if (!pose_updated) {
+        std::cout << "Pose is not updated" << std::endl;
+
+        rotate_to_relocalize();
+    }
 
     cv::Mat aligned_pose =
         calc_aligned_pose(drone->get_pose(), R_align, mu_align);
@@ -244,16 +251,13 @@ void Navigator::goto_point(const cv::Point3f& p) {
 
     while (get_distance_to_destination(last_location = get_last_location(), p) >
            std::pow(0.15, 2)) {
-        while (!rotate_to_destination_angle(last_location = get_last_location(),
-                                            p)) {
-            ;
-        }
+        rotate_to_destination_angle(last_location, p);
 
         std::this_thread::sleep_for(2s);
         if (pose_updated) {
-            drone->send_command("rc 0 30 0 0", false);
+            drone->send_command("rc 0 20 0 0", false);
+            std::this_thread::sleep_for(2s);
             pose_updated = false;
-            std::this_thread::sleep_for(1s);
         }
     }
 
@@ -362,20 +366,21 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
         pose_updated = false;
         const cv::Point3f last_location = get_last_location();
 
-        std::promise<pcl::PointXYZ> pof_promise;
-        auto pof_future = pof_promise.get_future();
-        std::thread get_pof(&Navigator::get_point_of_interest, aligned_points,
-                            std::move(pof_promise), current_dest_point++,
-                            last_location);
+        // std::promise<pcl::PointXYZ> pof_promise;
+        // auto pof_future = pof_promise.get_future();
+        // std::thread get_pof(&Navigator::get_point_of_interest,
+        // aligned_points,
+        //                     std::move(pof_promise), current_dest_point++,
+        //                     last_location);
 
-        do {
-            drone->send_command("rc 0 0 0 0", false);
-        } while (pof_future.wait_for(2s) != std::future_status::ready);
+        // do {
+        //     drone->send_command("rc 0 0 0 0", false);
+        // } while (pof_future.wait_for(2s) != std::future_status::ready);
 
-        const std::shared_ptr<pcl::PointXYZ> pof(
-            new pcl::PointXYZ(pof_future.get()));
-        get_pof.join();
-        std::cout << "FOUND POINT OF INTEREST!" << std::endl;
+        // const std::shared_ptr<pcl::PointXYZ> pof(
+        //     new pcl::PointXYZ(pof_future.get()));
+        // get_pof.join();
+        // std::cout << "FOUND POINT OF INTEREST!" << std::endl;
 
         std::promise<std::vector<pcl::PointXYZ>> path_promise;
         auto path_future = path_promise.get_future();
@@ -385,7 +390,7 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
                 path_promise.set_value(explorer->get_points_to_unknown(
                     pcl::PointXYZ(last_location.x, last_location.y,
                                   last_location.z),
-                    0.001, pof));
+                    0.001, nullptr));
             },
             std::move(path_promise));
 
@@ -414,7 +419,7 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
     return path_to_the_unknown;
 }
 
-void Navigator::start_new_map() {
+void Navigator::get_features_by_rotating() {
     const int degrees_to_rotate = 30;
     const int times_rotate = 360 / degrees_to_rotate;
     int current_rotate = 0;
@@ -428,7 +433,7 @@ void Navigator::start_new_map() {
                             false);
         multiplier *= -1;
         std::this_thread::sleep_for(5s);
-        drone->send_command("stop");
+        drone->send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(2s);
         pose_updated = false;
         std::this_thread::sleep_for(1s);
@@ -444,7 +449,7 @@ void Navigator::start_new_map() {
                                     false);
                 multiplier *= -1;
                 std::this_thread::sleep_for(5s);
-                drone->send_command("stop");
+                drone->send_command("rc 0 0 0 0", false);
                 std::this_thread::sleep_for(2s);
                 pose_updated = false;
                 std::this_thread::sleep_for(1s);
@@ -472,7 +477,7 @@ void Navigator::start_navigation(bool use_explorer) {
         std::this_thread::sleep_for(3s);
         drone->send_command("rc 0 0 0 0", false);
     } else {
-        start_new_map();
+        get_features_by_rotating();
         // SLAM->ChangeMapMerging(true);
         end_loop = true;
     }

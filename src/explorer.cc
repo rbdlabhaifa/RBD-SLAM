@@ -50,7 +50,10 @@ std::vector<pcl::PointXYZ> Explorer::get_points_to_unknown(
         return {};
     }
 
-    return PathBuilder(scale_factor)(cloud, start_point, known_points[0],
-                                     known_points[1], known_points[2],
-                                     RRT_points, point_of_interest);
+    auto builder = PathBuilder(scale_factor);
+    auto path = builder(cloud, start_point, known_points[0], known_points[1],
+                        known_points[2], RRT_points, point_of_interest);
+    best_paths = builder.best_paths;
+
+    return path;
 }

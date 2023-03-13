@@ -1,6 +1,5 @@
 #include "auxilary.hpp"
 
-#include <Eigen/src/Core/util/Meta.h>
 #include <geom/GeometryComponentFilter.h>
 #include <geos/geom/Coordinate.h>
 #include <geos/geom/CoordinateSequence.h>
@@ -24,7 +23,6 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <numeric>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
@@ -91,84 +89,6 @@ namespace Auxilary {
         return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
     }
 
-    template <typename T>
-    std::vector<std::size_t> argsort(const std::vector<T>& vec) {
-        std::vector<size_t> indices(vec.size());
-        std::iota(indices.begin(), indices.end(), 0);
-        std::sort(
-            indices.begin(), indices.end(),
-            [&vec](auto left, auto right) { return vec[left] < vec[right]; });
-
-        return indices;
-    }
-
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
-
-        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
-            block_mat(i) = vec(indices[i]);
-        }
-
-        return block_mat;
-    }
-
-    template <typename T>
-    void remove_row(Eigen::Matrix<T, Eigen::Dynamic, 1>& matrix,
-                    Eigen::Index rowToRemove) {
-        Eigen::Index numRows = matrix.rows() - 1;
-        Eigen::Index numCols = matrix.cols();
-
-        if (rowToRemove < numRows) {
-            matrix.block(rowToRemove, 0, numRows - rowToRemove, numCols) =
-                matrix.block(rowToRemove + 1, 0, numRows - rowToRemove,
-                             numCols);
-        }
-
-        matrix.conservativeResize(numRows, numCols);
-    }
-
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_all_indices_except(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        auto block_vec = vec;
-
-        for (Eigen::Index i = 0; i < indices.size(); ++i) {
-            remove_row(block_vec, indices[i]);
-        }
-
-        return block_vec;
-    }
-
-    template <typename T>
-    std::vector<T> get_indices(
-        const std::vector<T>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        std::vector<T> v_block(indices.size());
-
-        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
-            v_block[i] = vec[indices[i]];
-        }
-
-        return v_block;
-    }
-
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const std::vector<std::size_t>& indices) {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
-
-        for (Eigen::Index i = 0; i < indices.size(); ++i) {
-            block_mat(i) = vec(indices[i]);
-        }
-
-        return block_mat;
-    }
-
     std::vector<pcl::PointXYZ> get_points_on_line(const pcl::PointXYZ& start,
                                                   const pcl::PointXYZ& end,
                                                   float jump_distance) {
@@ -184,40 +104,6 @@ namespace Auxilary {
         }
 
         return points_on_line;
-    }
-
-    std::vector<std::unique_ptr<geos::geom::Geometry>> get_polygons(
-        const std::vector<std::vector<pcl::PointXYZ>>& points) {
-        std::vector<std::unique_ptr<geos::geom::Geometry>> polygons;
-        std::unique_ptr<geos::geom::PrecisionModel> pm(
-            new geos::geom::PrecisionModel());
-        auto geos_factory = geos::geom::GeometryFactory::create(pm.get(), -1);
-
-        for (const auto& points_v : points) {
-            std::vector<geos::geom::Coordinate> coords_vec;
-
-            std::transform(points_v.begin(), points_v.end(),
-                           std::back_inserter(coords_vec),
-                           [&](const auto& p) -> geos::geom::Coordinate {
-                               return {p.x, p.y, p.z};
-                           });
-
-            auto coords = geos_factory->getCoordinateSequenceFactory()->create(
-                std::move(coords_vec), 3);
-
-            auto ring = geos_factory->createLinearRing();
-            ring->setPoints(coords.get());
-            // auto ring = geos_factory->createLinearRing(std::move(coords));
-
-            auto poly = ring->convexHull();
-            if (poly->isValid()) {
-                polygons.push_back(std::move(poly));
-            } else {
-                std::cout << "NOT VALID POLYGON" << std::endl;
-            }
-        }
-
-        return polygons;
     }
 
     std::vector<std::unique_ptr<geos::geom::Geometry>> get_convexhulls(
@@ -260,85 +146,7 @@ namespace Auxilary {
 
         auto line = geos_factory->createLineString(std::move(coords));
 
-        // auto ring = geos_factory->createLinearRing();
-
-        // std::vector<geos::geom::Coordinate> coords_vec2{
-        //     {0.786114, -0.13823, -0.0470239},
-        //     {0.697524, -0.175287, -0.160328},
-        //     {0.765082, -0.135979, -0.0233465},
-        //     {0.72338, -0.278474, -0.270879},
-        //     {0.937708, -0.254209, -0.146081},
-        //     {0.775675, -0.26956, 0.0602451},
-        //     {0.956903, -0.165622, -0.0245822},
-        //     {0.652139, -0.347795, -0.0178738},
-        //     {0.661282, -0.326339, 0.0210348},
-        //     {0.653851, -0.327743, -0.0690501},
-        //     {0.651767, -0.325676, -0.0659045},
-        //     {0.674744, -0.252031, 0.0450594},
-        //     {0.705338, -0.164088, 0.0494387},
-        //     {0.688923, -0.23809, 0.0698805},
-        //     {0.758879, -0.22439, 0.0836618},
-        //     {0.693623, -0.142233, 0.0171078},
-        //     {0.793621, -0.152151, 0.01},
-        //     {0.729003, -0.344593, -0.0400155},
-        //     {0.750085, -0.326042, 0.00642205},
-        //     {0.66272, -0.354988, -0.0275128},
-        //     {0.757392, -0.33751, -0.0738401}};
-
-        // auto coords_seq =
-        // geos_factory->getCoordinateSequenceFactory()->create(
-        //     std::move(coords_vec2), 3);
-
-        // ring->setPoints(coords_seq.get());
-
-        // auto poly = geos_factory->createPolygon(std::move(ring));
         return line->intersects(polygon.get());
-
-        // return line->intersects(polygon.get());
-        // return polygon->intersects(line.get());
-        // return polygon->intersects(line.get());
-    }
-
-    bool check_convexhull_intersection(const pcl::PointXYZ& p,
-                                       const ConvexHullEquations& convexhull,
-                                       double tolerance) {
-        return std::all_of(
-            convexhull.facets_planes.begin(), convexhull.facets_planes.end(),
-            [&](const auto& facet) {
-                return facet.normal * p + facet.offset <= tolerance;
-            });
-    }
-
-    bool check_convexhull_intersection(const pcl::PointXYZ& start,
-                                       const pcl::PointXYZ& end,
-                                       const ConvexHullEquations& convexhull) {
-        const auto start_end = end - start;
-        float tfirst = 0;
-        float tlast = 0;
-
-        for (const auto& facet : convexhull.facets_planes) {
-            const auto denom = facet.normal * start_end;
-            const auto dist = facet.offset - facet.normal * start;
-
-            const auto t = dist / denom;
-            if (denom > 0) {
-            }
-
-            return std::count_if(
-                       convexhull.facets_planes.begin(),
-                       convexhull.facets_planes.end(), [&](const auto& facet) {
-                           // Check if the projection of the segment onto
-                           // the facet intersects the facet
-                           float t = -(facet.normal * start + facet.offset) /
-                                     (facet.normal * (end - start));
-                           pcl::PointXYZ intersection_point =
-                               start + t * (end - start);
-
-                           return facet.normal * intersection_point +
-                                      facet.offset <=
-                                  0;
-                       }) >= 2;
-        }
     }
 
     bool is_valid_movement(
@@ -348,13 +156,6 @@ namespace Auxilary {
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
         float jump_distance = scale_factor;
         float radius = 0.1;
-
-        // return std::all_of(convexhulls.begin(), convexhulls.end(),
-        //                    [&](const auto& convexhull) {
-        //                        return !check_convexhull_intersection(
-        //                            current_point, dest_point,
-        //                            convexhull);
-        //                    });
 
         return std::all_of(polygons.begin(), polygons.end(),
                            [&](const auto& polygon) {
@@ -408,7 +209,7 @@ namespace Auxilary {
         cluster_indices.erase(
             std::remove_if(cluster_indices.begin(), cluster_indices.end(),
                            [](const auto& indices) {
-                               return indices.indices.size() < 40;
+                               return indices.indices.size() < 80;
                            }),
             cluster_indices.end());
 
@@ -661,6 +462,7 @@ namespace Auxilary {
                                             const pcl::PointXYZ& span_v2) {
         std::random_device rd;
         std::mt19937 gen(rd());
+        // std::normal_distribution<float> dis(0, std::sqrt(50));
         std::uniform_real_distribution<float> dis(-30, 30);
 
         return dis(gen) * span_v1 + dis(gen) * span_v2;

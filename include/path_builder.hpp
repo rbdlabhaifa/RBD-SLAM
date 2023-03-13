@@ -1,14 +1,17 @@
 #ifndef PATH_BUILDER_H_
 #define PATH_BUILDER_H_
 
+#include <geos/geom/Geometry.h>
 #include <lemon/bfs.h>
 #include <lemon/core.h>
+#include <lemon/dfs.h>
 #include <lemon/list_graph.h>
 #include <pcl/PointIndices.h>
 #include <pcl/point_cloud.h>
 
 #include <cstddef>
 #include <filesystem>
+#include <memory>
 #include <pcl/impl/point_types.hpp>
 #include <vector>
 
@@ -21,10 +24,35 @@ class PathBuilder {
     const std::size_t how_long_valid_path = 5;
 
     bool debug = true;
+
+    static std::vector<std::vector<pcl::PointXYZ>> get_all_paths_to_leaves(
+        const lemon::ListDigraph& graph,
+        const lemon::ListDigraph::NodeMap<pcl::PointXYZ>& node_map,
+        const lemon::ListDigraph::Node& start_node);
+
+    static std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>
+    get_top_k_polygon_distances(
+        const std::vector<pcl::PointXYZ>& path,
+        const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons,
+        int k = 10);
+
+    static std::size_t get_last_change(
+        const std::vector<std::vector<std::size_t>>& polygon_idxs);
+
+    static Eigen::VectorXd g_div_gp(const Eigen::VectorXd& fv,
+                                    const Eigen::VectorXd& pv,
+                                    const Eigen::VectorXd& rn, int w, int nper,
+                                    int pmt);
+    static double get_path_rate(const std::vector<double>& distances);
+    static double get_path_rate(const std::vector<pcl::PointXYZ>& path);
+    static std::vector<std::vector<double>> split_distances(
+        const std::vector<double>& distances);
+
     static pcl::PointXYZ get_point_of_interest(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
 
-    static void get_navigation_points(
+    // TODO: make this static
+    void get_navigation_points(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ& navigate_starting_point,
         const pcl::PointXYZ& known_point1, const pcl::PointXYZ& known_point2,
@@ -37,6 +65,7 @@ class PathBuilder {
 
    public:
     explicit PathBuilder(float scale_factor = 0.2);
+    std::vector<std::vector<pcl::PointXYZ>> best_paths;
 
     /**
      * @brief Returns the path to the unknown
