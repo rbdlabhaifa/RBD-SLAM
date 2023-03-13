@@ -37,13 +37,6 @@ class SomeDrone {
 
 class Drone : public SomeDrone {
    public:
-    // Need to use this constructor for Charger
-    Drone(std::string drone_name, const std::string &rpi_bluetooth_address,
-          bool send_commands = true)
-        : send_commands(send_commands),
-          tello_(std::make_shared<ctello::Tello>()),
-          drone_name_(std::move(drone_name)) {}
-
     explicit Drone(bool send_commands = true)
         : send_commands(send_commands),
           tello_(std::make_shared<ctello::Tello>()) {}
@@ -61,10 +54,7 @@ class Drone : public SomeDrone {
     void test_reconnection();
 
    private:
-    //--- Variables ---
-
     std::shared_ptr<ctello::Tello> tello_;
-    std::string drone_name_;
     bool send_commands;
 };
 

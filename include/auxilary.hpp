@@ -18,11 +18,6 @@
 #include <vector>
 
 namespace Auxilary {
-    struct Edge {
-        pcl::PointXYZ p1;
-        pcl::PointXYZ p2;
-    };
-
     /**
      * @brief This function search for additional points in the radius
      * of "PointXYZ searchPoint"
@@ -34,26 +29,6 @@ namespace Auxilary {
     int radius_search(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
                       const pcl::PointXYZ& search_point, float radius,
                       const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree);
-
-    pcl::PointXYZ operator-(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2);
-    pcl::PointXYZ operator/(const pcl::PointXYZ& p, float d);
-
-    float norm(const pcl::PointXYZ& p);
-
-    /**
-     * @brief Given 2 vectors of size 3*1 and 3*1
-     * returns the matrix multipication
-     * @param pcl::PointXYZ p1[in] -> is the first point
-     * @param pcl::PointXYZ p2[in] -> is the second point
-     * @return float -> The matrix mul (1*3)*(3*1)
-     */
-    float operator*(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2);
-
-    pcl::PointXYZ operator*(const pcl::PointXYZ& p, float a);
-    pcl::PointXYZ operator*(float a, const pcl::PointXYZ& p);
-    pcl::PointXYZ operator+(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2);
-
-    bool operator==(const pcl::PointXYZ& lhs, const pcl::PointXYZ& rhs);
 
     // Hashable function for pcl::PointXYZ
     /**
@@ -71,11 +46,16 @@ namespace Auxilary {
                                                   const pcl::PointXYZ& end,
                                                   float jump_distance);
 
+    std::vector<pcl::PointIndices> get_clusters(
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+        std::size_t minimum_cluster_size = 60);
+
+    void save_clusters(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud,
+                       const std::vector<pcl::PointIndices>& cluster_indices);
+
     std::vector<std::unique_ptr<geos::geom::Geometry>> get_convexhulls(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const std::vector<pcl::PointIndices>& cluster_indices);
-
-    pcl::PointXYZ vec_to_pcl(std::vector<double> vec);
 
     bool is_valid_movement(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
@@ -97,8 +77,6 @@ namespace Auxilary {
         return xs;
     }
 
-    Eigen::VectorXf gradient(const Eigen::VectorXf& v);
-
     std::tuple<Eigen::MatrixXf, float, float> get_distances(
         const std::vector<pcl::PointXYZ>& v1,
         const std::vector<pcl::PointXYZ>& v2);
@@ -106,6 +84,7 @@ namespace Auxilary {
     std::tuple<pcl::PointXYZ, pcl::PointXYZ, pcl::PointXYZ, float>
     get_plane_from_3_points(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2,
                             const pcl::PointXYZ& p3);
+
     pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& cp, float d);
     pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& span_v1,
                                             const pcl::PointXYZ& span_v2);
@@ -128,94 +107,14 @@ namespace Auxilary {
         return indices;
     }
 
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
-
-        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
-            block_mat(i) = vec(indices[i]);
-        }
-
-        return block_mat;
-    }
-
-    template <typename T>
-    void remove_row(Eigen::Matrix<T, Eigen::Dynamic, 1>& matrix,
-                    Eigen::Index rowToRemove) {
-        Eigen::Index numRows = matrix.rows() - 1;
-        Eigen::Index numCols = matrix.cols();
-
-        if (rowToRemove < numRows) {
-            matrix.block(rowToRemove, 0, numRows - rowToRemove, numCols) =
-                matrix.block(rowToRemove + 1, 0, numRows - rowToRemove,
-                             numCols);
-        }
-
-        matrix.conservativeResize(numRows, numCols);
-    }
-
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_all_indices_except(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        auto block_vec = vec;
-
-        for (Eigen::Index i = 0; i < indices.size(); ++i) {
-            remove_row(block_vec, indices[i]);
-        }
-
-        return block_vec;
-    }
-
-    template <typename T>
-    std::vector<T> get_indices(
-        const std::vector<T>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        std::vector<T> v_block(indices.size());
-
-        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
-            v_block[i] = vec[indices[i]];
-        }
-
-        return v_block;
-    }
-
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const std::vector<std::size_t>& indices) {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
-
-        for (Eigen::Index i = 0; i < indices.size(); ++i) {
-            block_mat(i) = vec(indices[i]);
-        }
-
-        return block_mat;
-    }
-
-    std::vector<float> sum_rows(const Eigen::VectorXf& mat);
-
-    void delaunay_greedy_based_picking(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
-
     std::vector<pcl::PointXYZ> recursive_robust_median_clustering(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, int k);
-
-    void sort_matrix_columns(Eigen::MatrixXf& mat);
 
     pcl::PointXYZ robust_median(const std::vector<pcl::PointXYZ>& points,
                                 int k);
 
     std::vector<std::size_t> get_random_indices(std::size_t vec_length,
                                                 std::size_t amount);
-
-    std::vector<pcl::PointIndices> get_clusters(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
-
-    pcl::PointXYZ cross_product(const pcl::PointXYZ& v_a,
-                                const pcl::PointXYZ& v_b);
 
     void save_points_to_file(const std::vector<pcl::PointXYZ>& points,
                              const std::filesystem::path& location_file_path);

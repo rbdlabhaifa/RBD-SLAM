@@ -11,14 +11,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+add_compile_definitions(USE_UNSTABLE_GEOS_CPP_API)
+
 add_library(ORB_SLAM3 SHARED IMPORTED)
-set_property(TARGET ORB_SLAM3 PROPERTY IMPORTED_LOCATION
-                                       /usr/local/lib/libORB_SLAM3.so)
+set_property(
+  TARGET ORB_SLAM3
+  PROPERTY IMPORTED_LOCATION
+           ${CMAKE_SOURCE_DIR}/external/ORB_SLAM3/lib/libORB_SLAM3.so)
+
 set(ORB_SLAM3_INCLUDES
     external/ORB_SLAM3/include external/ORB_SLAM3/include/CameraModels
     external/ORB_SLAM3 external/ORB_SLAM3/Thirdparty/Sophus
     external/ORB_SLAM3/Thirdparty/g2o external/ORB_SLAM3/Thirdparty/DBoW2)
-# find_package(MORB_SLAM REQUIRED)
+
 find_package(PCL 1.2 REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
@@ -38,12 +43,23 @@ target_include_directories(tello_stream PRIVATE include)
 target_link_libraries(tello_stream PRIVATE ${Boost_LIBRARIES} ctello
                                            ${OpenCV_LIBS})
 
+# PCL Operations
+add_library(pcl_operations src/pcl_operations.cc)
+target_include_directories(pcl_operations PRIVATE include)
+target_link_libraries(pcl_operations PRIVATE ${PCL_LIBRARIES})
+
+# Eigen Operations
+add_library(eigen_operations src/eigen_operations.cc)
+target_include_directories(eigen_operations PRIVATE include)
+target_link_libraries(eigen_operations PRIVATE Eigen3::Eigen)
+
 # Path Builder
 add_library(path_builder src/path_builder.cc src/auxilary.cc)
 target_include_directories(path_builder PRIVATE include)
 target_include_directories(path_builder PRIVATE ${LEMON_INCLUDE_DIR})
-target_link_libraries(path_builder PRIVATE ${LEMON_LIBRARIES} ${PCL_LIBRARIES}
-                                           GEOS::geos Eigen3::Eigen)
+target_link_libraries(
+  path_builder PRIVATE ${LEMON_LIBRARIES} ${PCL_LIBRARIES} GEOS::geos
+                       Eigen3::Eigen pcl_operations eigen_operations)
 target_link_libraries(path_builder PUBLIC ${OpenCV_LIBS})
 
 # SLAM Utils

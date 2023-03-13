@@ -1,15 +1,5 @@
 #include "drone.hpp"
 
-// void Drone::testOnOff() {
-//     while (true) {
-//         turn_drone_on_and_connect();
-//         charger->turn_drone_off();
-//         turn_drone_on_and_connect();
-//     }
-// }
-
-// void Drone::test_reconnection() { charger->test_reconnection(); }
-
 void Drone::send_command(const std::string &cmd, bool wait_for_response) {
     std::cout << "(Tello" << (send_commands ? "" : " Fake")
               << ") command: " << cmd << std::endl;

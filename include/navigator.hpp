@@ -66,11 +66,6 @@ class Navigator {
 
     static float get_distance_to_destination(const cv::Point3f& p1,
                                              const cv::Point3f& p2);
-    static cv::Mat calc_aligned_pose(const cv::Mat& pose,
-                                     const cv::Mat& R_align,
-                                     const cv::Mat& mu_align);
-    static cv::Point3f rotation_matrix_to_euler_angles(const cv::Mat& R);
-    static cv::Mat sophus_to_cv(const Sophus::SE3f& pose);
 
     void update_pose();
 
@@ -81,6 +76,8 @@ class Navigator {
     void rotate_to_destination_angle(const cv::Point3f& location,
                                      const cv::Point3f& destination);
 
+    // NOTE: This function is not used at the moment (and pretty deprecated),
+    // delete?
     static void get_point_of_interest(
         const std::vector<Eigen::Matrix<double, 3, 1>>& points,
         std::promise<pcl::PointXYZ> pof_promise, std::size_t last_point,

@@ -1,7 +1,6 @@
 #include "path_builder.hpp"
 
 #include <geos/geom/GeometryFactory.h>
-#include <geos/geom/PrecisionModel.h>
 #include <lemon/core.h>
 #include <lemon/list_graph.h>
 #include <lemon/path.h>
@@ -24,8 +23,12 @@
 #include <vector>
 
 #include "auxilary.hpp"
+#include "eigen_operations.hpp"
+#include "pcl_operations.hpp"
 
 using namespace Auxilary;
+using namespace PCLOperations;
+using namespace EigenOperations;
 
 PathBuilder::PathBuilder(float scale_factor) : scale_factor(scale_factor) {}
 
@@ -60,7 +63,6 @@ std::vector<std::vector<pcl::PointXYZ>> PathBuilder::get_all_paths_to_leaves(
     dfs.start();
 
     std::size_t leaves = 0;
-    std::size_t reached = 0;
 
     for (lemon::ListDigraph::NodeIt it(graph); it != lemon::INVALID; ++it) {
         if (lemon::countOutArcs(graph, it) != 0) {
@@ -92,8 +94,6 @@ std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>
 PathBuilder::get_top_k_polygon_distances(
     const std::vector<pcl::PointXYZ>& path,
     const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons, int k) {
-    std::unique_ptr<geos::geom::PrecisionModel> pm(
-        new geos::geom::PrecisionModel());
     auto geos_factory = geos::geom::GeometryFactory::create();
 
     std::vector<double> distances;
@@ -140,6 +140,7 @@ Eigen::VectorXd PathBuilder::g_div_gp(const Eigen::VectorXd& fv,
     Eigen::VectorXd g;
     Eigen::VectorXd gp;
 
+    // TODO: This check may be improved
     if (rn_arr.size() == 1) {
         auto t1 = std::pow(rn_arr[0] + 1, nper);
         auto t2 = std::pow(rn_arr[0] + 1, nper - 1);
@@ -221,9 +222,9 @@ double PathBuilder::get_path_rate(const std::vector<double>& distances) {
 
     std::transform(
         distances_parts.begin(), distances_parts.end(),
-        std::back_inserter(rates), [&](const auto& part) -> double {
+        std::back_inserter(rates), [&](const auto& part) {
             if (part.size() == 1) {
-                return 0;
+                return 0.;
             }
 
             auto dist_copy = part;
@@ -266,7 +267,7 @@ double PathBuilder::get_path_rate(const std::vector<double>& distances) {
             }
 
             if (!close.all()) {
-                return 0;
+                return 0.;
             }
 
             return rn.mean();
@@ -283,6 +284,7 @@ double PathBuilder::get_path_rate(const std::vector<double>& distances) {
     return 0;
 }
 
+// NOTE: This function is not used at the moment, delete?
 pcl::PointXYZ PathBuilder::get_point_of_interest(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
     auto points_eigen_alloc = cloud->points;
@@ -298,7 +300,6 @@ pcl::PointXYZ PathBuilder::get_point_of_interest(
     Eigen::VectorXf R_s_eigen =
         Eigen::Map<Eigen::VectorXf, Eigen::Unaligned>(R_s_data, R_s.size());
     for (int i = 0; i < cloud->size(); ++i) {
-        // const auto dist_point = distances.col(i);
         Eigen::VectorXf dist_r(R_s.size());
 
         for (int j = 0; j < R_s.size(); ++j) {
@@ -330,133 +331,12 @@ pcl::PointXYZ PathBuilder::get_point_of_interest(
     return (*cloud)[max_index];
 }
 
-// TODO: Make this function better, use utility functions
-void PathBuilder::get_navigation_points(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-    const pcl::PointXYZ& navigate_starting_point,
-    const pcl::PointXYZ& known_point1, const pcl::PointXYZ& known_point2,
-    const pcl::PointXYZ& known_point3,
-    std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
-    std::vector<pcl::PointXYZ>& RRT_points,
-    const std::vector<pcl::PointIndices>& cluster_indices,
-    const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons,
-    const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
-    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-    kdtree.setInputCloud(cloud);
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr RRT_cloud(
-        new pcl::PointCloud<pcl::PointXYZ>);
-
-    lemon::ListDigraph RRT_graph;
-    lemon::ListDigraph::NodeMap<pcl::PointXYZ> node_to_point(RRT_graph);
-    auto comp_func = [](const pcl::PointXYZ& lhs, const pcl::PointXYZ& rhs) {
-        return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
-    };
-    auto hash_func = [](const pcl::PointXYZ& p) {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, p.x);
-        boost::hash_combine(seed, p.y);
-        boost::hash_combine(seed, p.z);
-        return seed;
-    };
-    std::unordered_map<pcl::PointXYZ, lemon::ListDigraph::Node,
-                       decltype(hash_func), decltype(comp_func)>
-        point_to_node(8, hash_func, comp_func);
-
-    std::vector<Edge> v_edges;
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr navigate_data(
-        new pcl::PointCloud<pcl::PointXYZ>);
-
-    navigate_data->push_back(navigate_starting_point);
-    lemon::ListDigraph::Node first_node = RRT_graph.addNode();
-
-    node_to_point[first_node] = navigate_starting_point;
-    point_to_node[navigate_starting_point] = first_node;
-
-    float jump = 0.3;
-    // float jump = 0.2 * scale_factor;
-    pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
-
-    pcl::PointXYZ plane_mean = (known_point1 + known_point2 + known_point3) / 3;
-
-    auto [cp, span_v1_gs, span_v2_gs, d] = get_plane_from_3_points(
-        known_point1 - plane_mean, known_point2 - plane_mean,
-        known_point3 - plane_mean);
-
-    int rrt_size = 0;
-    for (int i = 0; i < 4000; ++i) {
-        // pcl::PointXYZ point_rand =
-        //     (i % 3 == 0) ? get_random_point_on_plane(cp, d)
-        //                  : get_random_point_on_plane(
-        //                        navigate_starting_point,
-        //                        *point_of_interest, span_v1_gs,
-        //                        span_v2_gs, cp);
-        pcl::PointXYZ point_rand =
-            // (i % 3 != 0)
-            // ? get_random_point_on_plane(cp, d)
-            get_random_point_on_plane(span_v1_gs, span_v2_gs) + plane_mean;
-        // : *point_of_interest;
-
-        navigate_tree.setInputCloud(navigate_data);
-
-        std::vector<int> v_closest_point(1);
-        std::vector<float> v_dist_closest_point(1);
-
-        if (navigate_tree.nearestKSearch(point_rand, 1, v_closest_point,
-                                         v_dist_closest_point)) {
-            const pcl::PointXYZ& close_point =
-                (*navigate_data)[v_closest_point[0]];
-
-            pcl::PointXYZ point_new =
-                close_point + jump * (point_rand - close_point) /
-                                  (sqrt((point_rand - close_point) *
-                                        (point_rand - close_point)));
-
-            if (is_valid_movement(cloud, close_point, point_new, kdtree,
-                                  scale_factor, polygons)) {
-                navigate_data->push_back(point_new);
-                v_edges.push_back({point_new, close_point});
-
-                for (lemon::ListDigraph::NodeIt it(RRT_graph);
-                     it != lemon::INVALID; ++it) {
-                    if (node_to_point[it] == close_point) {
-                        lemon::ListDigraph::Node new_node = RRT_graph.addNode();
-                        node_to_point[new_node] = point_new;
-                        point_to_node[point_new] = new_node;
-                        RRT_graph.addArc(it, new_node);
-                        ++rrt_size;
-                        break;
-                    }
-                }
-            }
-        } else {
-            std::cout << "Cannot find Nearest Node" << std::endl;
-        }
-    }
-
-    std::cout << "FINISHED RRT with size " << rrt_size << std::endl;
-
-    std::chrono::steady_clock::time_point end =
-        std::chrono::steady_clock::now();
-
-    if (lemon::countNodes(RRT_graph) < 50) return;
-
-    std::random_device os_seed;
-    const uint_least32_t seed = os_seed();
-
-    std::mt19937 generator(seed);
-    std::uniform_int_distribution<uint_least32_t> dist(
-        1, lemon::countNodes(RRT_graph) - 2);
-    lemon::ListDigraph::NodeIt n(RRT_graph);
-
-    std::vector<int> v_closest_point(1);
-    std::vector<float> v_dist_closest_point(1);
-
-    const auto paths =
-        get_all_paths_to_leaves(RRT_graph, node_to_point, first_node);
-
-    // return;
+std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
+    const lemon::ListDigraph& graph,
+    const lemon::ListDigraph::NodeMap<pcl::PointXYZ>& node_map,
+    const lemon::ListDigraph::Node& start_node,
+    const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
+    const auto paths = get_all_paths_to_leaves(graph, node_map, start_node);
 
     std::vector<
         std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>>
@@ -479,8 +359,7 @@ void PathBuilder::get_navigation_points(
 
     const auto& max_distances = polygon_distances[rate_indices[0]];
     if (std::get<0>(max_distances).size() < how_long_valid_path) {
-        path_to_the_unknown.clear();
-        return;
+        return {};
     }
 
     const auto parts = split_distances(std::get<0>(max_distances));
@@ -496,14 +375,6 @@ void PathBuilder::get_navigation_points(
                    std::back_inserter(best_paths),
                    [&](const auto& ind) { return paths[ind]; });
 
-    // const auto max_path =
-    //     std::max_element(polygon_distances.begin(), polygon_distances.end(),
-    //                      [](const auto& distances_a, const auto& distances_b)
-    //                      {
-    //                          return get_path_rate(std::get<0>(distances_a)) <
-    //                                 get_path_rate(std::get<0>(distances_b));
-    //                      });
-
     std::cout << "Rate of " << get_path_rate(std::get<0>(max_distances))
               << " is the max" << std::endl;
 
@@ -512,14 +383,11 @@ void PathBuilder::get_navigation_points(
                   std::get<0>(max_distances).end(),
                   [](const auto& ds) { std::cout << ds << std::endl; });
 
-    path_to_the_unknown = paths[rate_indices[0]];
+    auto path_to_the_unknown = paths[rate_indices[0]];
 
     std::size_t original_size = path_to_the_unknown.size();
 
-    // path_to_the_unknown = {path_to_the_unknown.begin(),
-    //                        path_to_the_unknown.begin() +
-    //                            get_last_change(std::get<1>(max_distances))};
-
+    // TODO: maybe we need something else than all parts before last
     path_to_the_unknown = {
         path_to_the_unknown.begin(),
         path_to_the_unknown.end() - parts[parts.size() - 1].size()};
@@ -527,59 +395,94 @@ void PathBuilder::get_navigation_points(
     std::cout << "Path of size " << path_to_the_unknown.size() << " out of "
               << original_size << std::endl;
 
+    return path_to_the_unknown;
+}
+
+// TODO: Make this function better, use utility functions
+void PathBuilder::get_navigation_points(
+    pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+    const pcl::PointXYZ& navigate_starting_point,
+    const pcl::PointXYZ& known_point1, const pcl::PointXYZ& known_point2,
+    const pcl::PointXYZ& known_point3,
+    std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
+    std::vector<pcl::PointXYZ>& RRT_points,
+    const std::vector<pcl::PointIndices>& cluster_indices,
+    const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(cloud);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr RRT_cloud(
+        new pcl::PointCloud<pcl::PointXYZ>);
+
+    lemon::ListDigraph RRT_graph;
+    lemon::ListDigraph::NodeMap<pcl::PointXYZ> node_to_point(RRT_graph);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr navigate_data(
+        new pcl::PointCloud<pcl::PointXYZ>);
+
+    navigate_data->push_back(navigate_starting_point);
+    lemon::ListDigraph::Node first_node = RRT_graph.addNode();
+
+    node_to_point[first_node] = navigate_starting_point;
+
+    float jump = 0.3;
+    pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
+
+    pcl::PointXYZ plane_mean = (known_point1 + known_point2 + known_point3) / 3;
+
+    auto [cp, span_v1_gs, span_v2_gs, d] = get_plane_from_3_points(
+        known_point1 - plane_mean, known_point2 - plane_mean,
+        known_point3 - plane_mean);
+
+    int rrt_size = 0;
+    for (int i = 0; i < rrt_graph_max_size; ++i) {
+        pcl::PointXYZ point_rand =
+            get_random_point_on_plane(span_v1_gs, span_v2_gs) + plane_mean;
+
+        navigate_tree.setInputCloud(navigate_data);
+
+        std::vector<int> v_closest_point(1);
+        std::vector<float> v_dist_closest_point(1);
+
+        if (navigate_tree.nearestKSearch(point_rand, 1, v_closest_point,
+                                         v_dist_closest_point) > 0) {
+            const pcl::PointXYZ& close_point =
+                (*navigate_data)[v_closest_point[0]];
+
+            pcl::PointXYZ point_new =
+                close_point + jump * (point_rand - close_point) /
+                                  (std::sqrt((point_rand - close_point) *
+                                             (point_rand - close_point)));
+
+            if (is_valid_movement(cloud, close_point, point_new, kdtree,
+                                  scale_factor, polygons)) {
+                for (lemon::ListDigraph::NodeIt it(RRT_graph);
+                     it != lemon::INVALID; ++it) {
+                    if (node_to_point[it] == close_point) {
+                        navigate_data->push_back(point_new);
+                        lemon::ListDigraph::Node new_node = RRT_graph.addNode();
+                        node_to_point[new_node] = point_new;
+                        RRT_graph.addArc(it, new_node);
+                        ++rrt_size;
+                        break;
+                    }
+                }
+            }
+        } else {
+            std::cout << "Cannot find Nearest Node" << std::endl;
+        }
+    }
+
+    std::cout << "FINISHED RRT with size " << rrt_size << std::endl;
+
+    if (lemon::countNodes(RRT_graph) < 50) return;
+
+    path_to_the_unknown =
+        find_best_path(RRT_graph, node_to_point, first_node, polygons);
+
     for (lemon::ListDigraph::NodeIt it(RRT_graph); it != lemon::INVALID; ++it) {
         RRT_points.push_back(node_to_point[it]);
     }
-
-    return;
-
-    if (point_of_interest != nullptr) {
-        std::cout << *point_of_interest << std::endl;
-    }
-
-    if (point_of_interest != nullptr) {
-        navigate_tree.nearestKSearch(
-            (*point_of_interest - navigate_starting_point) / 2, 1,
-            v_closest_point, v_dist_closest_point);
-
-        if (v_dist_closest_point[0] > 2) {
-            path_to_the_unknown.clear();
-            return;
-        }
-
-    } else {
-        for (int i = 0; i < dist(generator); ++i) ++n;
-    }
-
-    lemon::ListDigraph::Node get_random_node_rrt =
-        point_of_interest == nullptr
-            ? n
-            : point_to_node[(*navigate_data)[v_closest_point[0]]];
-
-    // BFS
-    lemon::Bfs<lemon::ListDigraph> bfs(RRT_graph);
-    bfs.init();
-    bfs.addSource(first_node);
-    bfs.start();
-
-    if (bfs.reached(get_random_node_rrt)) {
-        path_to_the_unknown.insert(path_to_the_unknown.begin(),
-                                   node_to_point[get_random_node_rrt]);
-
-        lemon::ListDigraph::Node prev = bfs.predNode(get_random_node_rrt);
-
-        while (prev != lemon::INVALID) {
-            path_to_the_unknown.insert(path_to_the_unknown.begin(),
-                                       node_to_point[prev]);
-            prev = bfs.predNode(prev);
-        }
-    }
-
-    for (lemon::ListDigraph::NodeIt it(RRT_graph); it != lemon::INVALID; ++it) {
-        RRT_points.push_back(node_to_point[it]);
-    }
-
-    std::cout << node_to_point[get_random_node_rrt] << std::endl;
 }
 
 std::vector<pcl::PointXYZ> PathBuilder::operator()(
@@ -590,24 +493,10 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
     const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
     std::vector<pcl::PointXYZ> path_to_the_unknown;
 
-    // auto start = std::chrono::steady_clock::now();
-    // auto something = recursive_robust_median_clustering(cloud, 20);
-    // auto end = std::chrono::steady_clock::now();
-
-    // std::cout
-    //     << "Elapsed time in seconds: "
-    //     << std::chrono::duration_cast<std::chrono::seconds>(end -
-    //     start).count()
-    //     << " sec";
-
     auto cluster_indices = get_clusters(cloud);
     auto convexhulls = get_convexhulls(cloud, cluster_indices);
-    std::size_t tries = 30;
-    // std::shared_ptr<pcl::PointXYZ> poi(
-    //     new pcl::PointXYZ(get_point_of_interest(cloud)));
 
-    // while (path_to_the_unknown.size() < how_long_valid_path && tries-- >
-    // 0) {
+    std::size_t tries = 30;
     while (path_to_the_unknown.empty() && tries-- > 0) {
         std::cout << "NOT VALID" << std::endl;
         static std::size_t tries_scale_factor_until_change = tries_scale_factor;
@@ -617,16 +506,7 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
 
         get_navigation_points(cloud, start_point, known_point1, known_point2,
                               known_point3, path_to_the_unknown, scale_factor,
-                              RRT_points, cluster_indices, convexhulls,
-                              nullptr);
-
-        // if (tries_scale_factor_until_change == 0) {
-        //     scale_factor = scale_factor * (1 - change_scale_factor);
-
-        //     tries_scale_factor_until_change = tries_scale_factor;
-        // }
-
-        // --tries_scale_factor_until_change;
+                              RRT_points, cluster_indices, convexhulls);
 
         if (tries % 10 == 0) {
             cluster_indices = get_clusters(cloud);
@@ -634,13 +514,11 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
         }
     }
 
-    // if (path_to_the_unknown.size() < how_long_valid_path) {
-    //     path_to_the_unknown.clear();
-    // }
-
-    if (debug)
-        for (auto point : path_to_the_unknown)
+    if (debug) {
+        for (const auto& point : path_to_the_unknown) {
             std::cout << point.x << " " << point.y << " " << point.z << "->";
+        }
+    }
 
     return path_to_the_unknown;
 }

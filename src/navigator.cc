@@ -29,6 +29,8 @@
 #include "explorer.hpp"
 #include "slam_utils.hpp"
 
+using namespace SLAMUtils;
+
 Navigator::Navigator(
     std::shared_ptr<SomeDrone> drone, const std::string& vocabulary_file_path,
     const std::string& calibration_file_path, std::string map_file_path,
@@ -55,62 +57,6 @@ Navigator::~Navigator() {
     SLAM->Shutdown();
 }
 
-cv::Mat Navigator::calc_aligned_pose(const cv::Mat& pose,
-                                     const cv::Mat& R_align,
-                                     const cv::Mat& mu_align) {
-    cv::Mat Rcw = pose.rowRange(0, 3).colRange(0, 3);
-    cv::Mat tcw = pose.rowRange(0, 3).col(3);
-    cv::Mat Rwc = Rcw.t();
-
-    cv::Mat twc = -Rwc * tcw;
-
-    cv::Mat aligned_Rwc = R_align * Rwc;
-    cv::Mat aligned_twc = R_align * (twc - mu_align);
-    cv::Mat align_pose = cv::Mat::eye(4, 4, CV_32F);
-
-    cv::Mat aligned_Rcw = aligned_Rwc.t();
-    cv::Mat aligned_tcw = -aligned_Rcw * aligned_twc;
-    aligned_Rcw.copyTo(align_pose.rowRange(0, 3).colRange(0, 3));
-    aligned_tcw.copyTo(align_pose.rowRange(0, 3).col(3));
-
-    return align_pose;
-}
-
-cv::Point3f Navigator::rotation_matrix_to_euler_angles(const cv::Mat& R) {
-    float sy = sqrt(R.at<float>(0, 0) * R.at<float>(0, 0) +
-                    R.at<float>(1, 0) * R.at<float>(1, 0));
-
-    bool singular = sy < 1e-6;  // If
-
-    float x, y, z;
-    if (!singular) {
-        x = atan2(R.at<float>(2, 1), R.at<float>(2, 2));
-        y = atan2(-R.at<float>(2, 0), sy);
-        z = atan2(R.at<float>(1, 0), R.at<float>(0, 0));
-    } else {
-        x = atan2(-R.at<float>(1, 2), R.at<float>(1, 1));
-        y = atan2(-R.at<float>(2, 0), sy);
-        z = 0;
-    }
-    return {static_cast<float>(x * 180 / CV_PI),
-            static_cast<float>(y * 180 / CV_PI),
-            static_cast<float>(z * 180 / CV_PI)};
-}
-
-cv::Mat Navigator::sophus_to_cv(const Sophus::SE3f& pose) {
-    cv::Mat pose_cv = cv::Mat::eye(4, 4, CV_32F);
-    cv::Mat rotation_cv;
-    cv::Mat translation_cv;
-
-    cv::eigen2cv(pose.rotationMatrix(), rotation_cv);
-    cv::eigen2cv(pose.translation(), translation_cv);
-
-    rotation_cv.copyTo(pose_cv.rowRange(0, 3).colRange(0, 3));
-    translation_cv.copyTo(pose_cv.rowRange(0, 3).col(3));
-
-    return pose_cv;
-}
-
 void Navigator::update_pose() {
     std::array<uchar, 640 * 480 * 3> current_frame{};
 
@@ -129,8 +75,7 @@ void Navigator::update_pose() {
 
         const auto current_state = SLAM->GetTrackingState();
 
-        if (!pose_updated && current_state != ORB_SLAM3::Tracking::LOST &&
-            current_state != ORB_SLAM3::Tracking::RECENTLY_LOST) {
+        if (!pose_updated && current_state == ORB_SLAM3::Tracking::OK) {
             if (!started_navigation) {
                 if (end_loop) {
                     SLAM->ActivateLocalizationMode();
@@ -314,7 +259,6 @@ void Navigator::get_point_of_interest(
     const std::vector<Eigen::Matrix<double, 3, 1>>& points,
     std::promise<pcl::PointXYZ> pof_promise, std::size_t last_point,
     const cv::Point3f& last_location) {
-    // TODO: REPLACE THIS ASAP!
     auto map_filename = "current_map" + std::to_string(last_point) + ".xyz";
     auto start_filename = "start" + std::to_string(last_point) + ".xyz";
 
@@ -358,7 +302,7 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
     std::vector<pcl::PointXYZ> path_to_the_unknown;
 
     while (path_to_the_unknown.empty()) {
-        const auto aligned_points = SLAMUtils::get_aligned_points_from_slam(
+        const auto aligned_points = get_aligned_points_from_slam(
             SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
             mu_align);
         explorer->set_cloud_points(aligned_points);
@@ -406,7 +350,7 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
         path_to_the_unknown,
         data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
     Auxilary::save_points_to_file(
-        SLAMUtils::get_aligned_points_from_slam(
+        get_aligned_points_from_slam(
             SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
             mu_align),
         data_dir / ("map_for_path" + std::to_string(paths_created) + ".xyz"));
@@ -491,21 +435,20 @@ void Navigator::start_navigation(bool use_explorer) {
         SLAM->GetAtlas()
             ->GetCurrentMap()  // TODO: should we take all the maps?
             ->GetAllMapPoints();
-    const auto [R_align, mu_align] =
-        SLAMUtils::get_alignment_matrices(map_points);
+    const auto [R_align, mu_align] = get_alignment_matrices(map_points);
     this->R_align = R_align;
     this->mu_align = mu_align;
 
     const auto slam_points =
-        SLAMUtils::get_aligned_points_from_slam(map_points, R_align, mu_align);
+        get_aligned_points_from_slam(map_points, R_align, mu_align);
     if (use_explorer) explorer = std::make_shared<Explorer>(slam_points);
 
     Auxilary::save_points_to_file(slam_points, data_dir / "aligned_points.xyz");
 
     std::transform(destinations.begin(), destinations.end(),
                    destinations.begin(), [&](const auto& p) {
-                       return SLAMUtils::calc_aligned_point(p, this->R_align,
-                                                            this->mu_align);
+                       return calc_aligned_point(p, this->R_align,
+                                                 this->mu_align);
                    });
 
     Auxilary::save_points_to_file(destinations,

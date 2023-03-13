@@ -6,13 +6,7 @@
 #include <geos/geom/CoordinateSequenceFactory.h>
 #include <geos/geom/GeometryFactory.h>
 #include <geos/geom/Polygon.h>
-#include <geos/geom/PrecisionModel.h>
-#include <geos/triangulate/polygon/ConstrainedDelaunayTriangulator.h>
 #include <pcl/io/pcd_io.h>
-#include <pcl/ml/kmeans.h>
-#include <pcl/segmentation/extract_clusters.h>
-#include <triangulate/tri/Tri.h>
-#include <triangulate/tri/TriList.h>
 
 #include <algorithm>
 #include <cmath>
@@ -33,6 +27,12 @@
 #include <utility>
 #include <vector>
 
+#include "eigen_operations.hpp"
+#include "pcl_operations.hpp"
+
+using namespace PCLOperations;
+using namespace EigenOperations;
+
 namespace Auxilary {
     int radius_search(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
                       const pcl::PointXYZ& search_point, float radius,
@@ -43,50 +43,6 @@ namespace Auxilary {
         return kdtree.radiusSearch(search_point, radius,
                                    point_idx_radius_search,
                                    point_radius_squared_distance);
-    }
-
-    pcl::PointXYZ vec_to_pcl(std::vector<double> vec) {
-        if (vec.size() != 3) return {0, 0, 0};
-
-        return {static_cast<float>(vec[0]), static_cast<float>(vec[1]),
-                static_cast<float>(vec[2])};
-    }
-
-    pcl::PointXYZ operator-(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) {
-        return {p1.x - p2.x, p1.y - p2.y, p1.z - p2.z};
-    }
-
-    pcl::PointXYZ operator/(const pcl::PointXYZ& p, float d) {
-        if (d == 0) return p;
-
-        return {p.x / d, p.y / d, p.z / d};
-    }
-
-    float norm(const pcl::PointXYZ& p) {
-        return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-    }
-
-    float operator*(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) {
-        return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
-    }
-
-    pcl::PointXYZ operator*(const pcl::PointXYZ& p, float a) {
-        return {p.x * a, p.y * a, p.z * a};
-    }
-    pcl::PointXYZ operator*(float a, const pcl::PointXYZ& p) {
-        return {p.x * a, p.y * a, p.z * a};
-    }
-
-    pcl::PointXYZ operator+(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) {
-        return {p1.x + p2.x, p1.y + p2.y, p1.z + p2.z};
-    }
-
-    bool operator==(const pcl::PointXYZ& lhs, const pcl::PointXYZ& rhs) {
-        return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
-    }
-
-    bool operator==(const pcl::PointXYZ lhs, const pcl::PointXYZ rhs) {
-        return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
     }
 
     std::vector<pcl::PointXYZ> get_points_on_line(const pcl::PointXYZ& start,
@@ -110,9 +66,7 @@ namespace Auxilary {
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const std::vector<pcl::PointIndices>& cluster_indices) {
         std::vector<std::unique_ptr<geos::geom::Geometry>> convexhulls;
-        std::unique_ptr<geos::geom::PrecisionModel> pm(
-            new geos::geom::PrecisionModel());
-        auto geos_factory = geos::geom::GeometryFactory::create(pm.get(), -1);
+        auto geos_factory = geos::geom::GeometryFactory::create();
 
         for (const auto& i : cluster_indices) {
             std::vector<geos::geom::Coordinate> cluster_points;
@@ -135,9 +89,7 @@ namespace Auxilary {
     bool check_polygon_intersection(
         const pcl::PointXYZ& start, const pcl::PointXYZ& end,
         const std::unique_ptr<geos::geom::Geometry>& polygon) {
-        std::unique_ptr<geos::geom::PrecisionModel> pm(
-            new geos::geom::PrecisionModel());
-        auto geos_factory = geos::geom::GeometryFactory::create(pm.get(), -1);
+        auto geos_factory = geos::geom::GeometryFactory::create();
         std::vector<geos::geom::Coordinate> coords_vec{
             {start.x, start.y, start.z}, {end.x, end.y, end.z}};
 
@@ -168,24 +120,37 @@ namespace Auxilary {
     get_plane_from_3_points(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2,
                             const pcl::PointXYZ& p3) {
         pcl::PointXYZ span_v1 = p3 - p1;
-        auto span_v1_gs = span_v1 / sqrt(span_v1 * span_v1);
+        auto span_v1_gs = span_v1 / std::sqrt(span_v1 * span_v1);
 
         pcl::PointXYZ span_v2 = p2 - p1;
         auto span_v2_gs = span_v2 - (span_v2 * span_v1_gs) * span_v1_gs;
-        span_v2_gs = span_v2_gs / sqrt(span_v2_gs * span_v2_gs);
-
-        // span_v2_gs = span_v2_gs / sqrt(span_v2_gs * span_v2_gs);
+        span_v2_gs = span_v2_gs / std::sqrt(span_v2_gs * span_v2_gs);
 
         auto cp = cross_product(span_v1_gs, span_v2_gs);
-        // auto cp = cross_product(span_v1, span_v2);
         auto d = cp * p3;
 
         return {cp, span_v1_gs, span_v2_gs, d};
-        // return {cp, span_v1, span_v2, d};
+    }
+
+    void save_clusters(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud,
+                       const std::vector<pcl::PointIndices>& cluster_indices) {
+        std::size_t j = 0;
+        for (const auto& cluster : cluster_indices) {
+            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(
+                new pcl::PointCloud<pcl::PointXYZ>);
+            for (const auto& idx : cluster.indices) {
+                cloud_cluster->push_back((*cloud)[idx]);
+            }
+            cloud_cluster->is_dense = true;
+
+            pcl::io::savePCDFileASCII("test_pcd" + std::to_string(j++) + ".pcd",
+                                      *cloud_cluster);
+        }
     }
 
     std::vector<pcl::PointIndices> get_clusters(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+        std::size_t minimum_cluster_size) {
         cv::Mat points(cloud->size(), 1, CV_32FC3);
         cv::Mat labels;
         std::vector<cv::Point3f> centers;
@@ -208,34 +173,15 @@ namespace Auxilary {
 
         cluster_indices.erase(
             std::remove_if(cluster_indices.begin(), cluster_indices.end(),
-                           [](const auto& indices) {
-                               return indices.indices.size() < 80;
+                           [&](const auto& indices) {
+                               return indices.indices.size() <
+                                      minimum_cluster_size;
                            }),
             cluster_indices.end());
-
-        auto el =
-            std::min_element(cluster_indices.begin(), cluster_indices.end(),
-                             [](const auto& a, const auto& b) {
-                                 return a.indices.size() < b.indices.size();
-                             });
-
-        std::cout << el->indices.size() << std::endl;
 
         std::cout << "Found " << cluster_indices.size() << " clusters"
                   << std::endl;
 
-        int j = 0;
-        for (const auto& cluster : cluster_indices) {
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(
-                new pcl::PointCloud<pcl::PointXYZ>);
-            for (const auto& idx : cluster.indices) {
-                cloud_cluster->push_back((*cloud)[idx]);
-            }  //*
-            cloud_cluster->is_dense = true;
-
-            pcl::io::savePCDFileASCII("test_pcd" + std::to_string(j++) + ".pcd",
-                                      *cloud_cluster);
-        }
         return cluster_indices;
     }
 
@@ -251,7 +197,7 @@ namespace Auxilary {
         for (int i = 0; i < v1.size(); ++i) {
             for (int j = 0; j < v2.size(); ++j) {
                 const auto diff = v2[j] - v1[i];
-                const float dist = sqrt(diff * diff);
+                const float dist = std::sqrt(diff * diff);
                 if (dist != 0) {
                     min_val = std::min(min_val, dist);
                     sum_non_zero += dist;
@@ -282,36 +228,11 @@ namespace Auxilary {
         return indices;
     }
 
-    void sort_matrix_columns(Eigen::MatrixXf& mat) {
-        for (Eigen::Index col = 0; col < mat.cols(); ++col) {
-            std::vector<float> col_vec(mat.rows());
-
-            for (Eigen::Index row = 0; row < mat.rows(); ++row) {
-                col_vec[row] = mat(row, col);
-            }
-
-            std::sort(col_vec.begin(), col_vec.end());
-
-            for (Eigen::Index row = 0; row < mat.rows(); ++row) {
-                mat(row, col) = col_vec[row];
-            }
-        }
-    }
-
-    std::vector<float> sum_rows(const Eigen::VectorXf& mat) {
-        std::vector<float> sum_vec(mat.cols());
-
-        for (Eigen::Index i = 0; i < mat.cols(); ++i) {
-            sum_vec[i] = mat.col(i).sum();
-        }
-
-        return sum_vec;
-    }
-
     pcl::PointXYZ robust_median(const std::vector<pcl::PointXYZ>& points,
                                 int k) {
         auto random_indices = get_random_indices(
-            points.size(), static_cast<std::size_t>(3 * sqrt(points.size())));
+            points.size(),
+            static_cast<std::size_t>(3 * std::sqrt(points.size())));
         std::sort(random_indices.begin(), random_indices.end());
         random_indices.erase(
             std::unique(random_indices.begin(), random_indices.end()),
@@ -342,11 +263,7 @@ namespace Auxilary {
             sums.begin(), std::min_element(sums.begin(), sums.end()))]];
     }
 
-    void delaunay_greedy_based_picking(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
-        auto centers = recursive_robust_median_clustering(cloud, 20);
-    }
-
+    // NOTE: This function is not used at the moment, delete?
     std::vector<pcl::PointXYZ> recursive_robust_median_clustering(
         const pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, int k) {
         auto points_eigen_alloc = cloud->points;
@@ -413,28 +330,6 @@ namespace Auxilary {
         return centers;
     }
 
-    Eigen::VectorXf gradient(const Eigen::VectorXf& v) {
-        if (v.size() <= 1) return v;
-
-        Eigen::VectorXf res(v.size());
-        for (int j = 0; j < v.size(); j++) {
-            int j_left = j - 1;
-            int j_right = j + 1;
-            if (j_left < 0) {
-                j_left = 0;  // use your own boundary handler
-                j_right = 1;
-            }
-            if (j_right >= v.size()) {
-                j_right = v.size() - 1;
-                j_left = j_right - 1;
-            }
-            // gradient value at position j
-            auto dist_grad = (v(j_right) - v(j_left)) / 2.0;
-            res(j) = dist_grad;
-        }
-        return res;
-    }
-
     pcl::PointXYZ get_random_point_on_plane(
         const pcl::PointXYZ& start, const pcl::PointXYZ& point_of_interest,
         const pcl::PointXYZ& u1, const pcl::PointXYZ& u2,
@@ -444,15 +339,17 @@ namespace Auxilary {
             u1 * (u1 * point_of_interest) + u2 * (u2 * point_of_interest);
 
         auto normal_to_plane =
-            cross_product(cp / sqrt(cp * cp), start_proj - end_proj);
+            cross_product(cp / std::sqrt(cp * cp), start_proj - end_proj);
 
         auto diff = end_proj - start_proj;
 
         std::random_device rd;
         std::mt19937 gen(rd());
 
-        std::uniform_real_distribution<float> dis_1(0, 2 * sqrt((diff * diff)));
-        std::uniform_real_distribution<float> dis_2(0, sqrt((diff * diff)));
+        std::uniform_real_distribution<float> dis_1(
+            0, 2 * std::sqrt((diff * diff)));
+        std::uniform_real_distribution<float> dis_2(0,
+                                                    std::sqrt((diff * diff)));
 
         return dis_1(gen) * (end_proj - start_proj) +
                dis_2(gen) * normal_to_plane;
@@ -472,16 +369,10 @@ namespace Auxilary {
         std::random_device rd;
         std::mt19937 gen(rd());
 
-        std::uniform_real_distribution<float> dis(-100, 100);
+        std::uniform_real_distribution<float> dis(-30, 30);
         auto x = dis(gen);
         auto y = dis(gen);
         return {x, y, (-d - cp.x * x - cp.y * y) / (cp.z == 0 ? 0.001f : cp.z)};
-    }
-
-    pcl::PointXYZ cross_product(const pcl::PointXYZ& v_a,
-                                const pcl::PointXYZ& v_b) {
-        return {v_a.y * v_b.z - v_a.z * v_b.y, -(v_a.x * v_b.z - v_a.z * v_b.x),
-                v_a.x * v_b.y - v_a.y * v_b.x};
     }
 
     std::vector<pcl::PointXYZ> load_path_from_file(
