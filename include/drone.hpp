@@ -5,7 +5,7 @@
 
 #include <iomanip>
 #include <iostream>
-#include <memory>  // std::shared_ptr
+#include <memory>
 #include <mutex>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -16,6 +16,7 @@
 
 #include "ctello.h"
 
+/// A class that sends fake commands, doesn't connect to a real drone
 class SomeDrone {
    public:
     void update_pose(const cv::Mat &drone_pose);
@@ -35,6 +36,7 @@ class SomeDrone {
     cv::Mat drone_pose_;
 };
 
+/// Sends real commands to a tello drone
 class Drone : public SomeDrone {
    public:
     explicit Drone(bool send_commands = true)
@@ -48,10 +50,6 @@ class Drone : public SomeDrone {
 
     void activate_drone() override;
     int get_battery() override;
-
-    void testOnOff();
-
-    void test_reconnection();
 
    private:
     std::shared_ptr<ctello::Tello> tello_;

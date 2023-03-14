@@ -284,7 +284,6 @@ double PathBuilder::get_path_rate(const std::vector<double>& distances) {
     return 0;
 }
 
-// NOTE: This function is not used at the moment, delete?
 pcl::PointXYZ PathBuilder::get_point_of_interest(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
     auto points_eigen_alloc = cloud->points;
@@ -406,7 +405,6 @@ void PathBuilder::get_navigation_points(
     const pcl::PointXYZ& known_point3,
     std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
     std::vector<pcl::PointXYZ>& RRT_points,
-    const std::vector<pcl::PointIndices>& cluster_indices,
     const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
@@ -426,8 +424,8 @@ void PathBuilder::get_navigation_points(
     node_to_point[first_node] = navigate_starting_point;
 
     float jump = 0.3;
-    pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
 
+    pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
     pcl::PointXYZ plane_mean = (known_point1 + known_point2 + known_point3) / 3;
 
     auto [cp, span_v1_gs, span_v2_gs, d] = get_plane_from_3_points(
@@ -454,8 +452,7 @@ void PathBuilder::get_navigation_points(
                                   (std::sqrt((point_rand - close_point) *
                                              (point_rand - close_point)));
 
-            if (is_valid_movement(cloud, close_point, point_new, kdtree,
-                                  scale_factor, polygons)) {
+            if (is_valid_movement(cloud, close_point, point_new, polygons)) {
                 for (lemon::ListDigraph::NodeIt it(RRT_graph);
                      it != lemon::INVALID; ++it) {
                     if (node_to_point[it] == close_point) {
@@ -489,8 +486,7 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
     const pcl::PointXYZ& start_point, const pcl::PointXYZ& known_point1,
     const pcl::PointXYZ& known_point2, const pcl::PointXYZ& known_point3,
-    std::vector<pcl::PointXYZ>& RRT_points,
-    const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
+    std::vector<pcl::PointXYZ>& RRT_points) {
     std::vector<pcl::PointXYZ> path_to_the_unknown;
 
     auto cluster_indices = get_clusters(cloud);
@@ -506,7 +502,7 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
 
         get_navigation_points(cloud, start_point, known_point1, known_point2,
                               known_point3, path_to_the_unknown, scale_factor,
-                              RRT_points, cluster_indices, convexhulls);
+                              RRT_points, convexhulls);
 
         if (tries % 10 == 0) {
             cluster_indices = get_clusters(cloud);
@@ -523,16 +519,15 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
     return path_to_the_unknown;
 }
 
-void PathBuilder::operator()(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-    const pcl::PointXYZ& start_point, const pcl::PointXYZ& known_point1,
-    const pcl::PointXYZ& known_point2, const pcl::PointXYZ& known_point3,
-    std::vector<pcl::PointXYZ>& path_to_the_unknown,
-    std::vector<pcl::PointXYZ>& RRT_points,
-    const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
+void PathBuilder::operator()(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+                             const pcl::PointXYZ& start_point,
+                             const pcl::PointXYZ& known_point1,
+                             const pcl::PointXYZ& known_point2,
+                             const pcl::PointXYZ& known_point3,
+                             std::vector<pcl::PointXYZ>& path_to_the_unknown,
+                             std::vector<pcl::PointXYZ>& RRT_points) {
     path_to_the_unknown = operator()(cloud, start_point, known_point1,
-                                     known_point2, known_point3, RRT_points,
-                                     point_of_interest);
+                                     known_point2, known_point3, RRT_points);
 }
 
 void PathBuilder::operator()(
@@ -540,10 +535,9 @@ void PathBuilder::operator()(
     const pcl::PointXYZ& start_point, const pcl::PointXYZ& known_point1,
     const pcl::PointXYZ& known_point2, const pcl::PointXYZ& known_point3,
     const std::filesystem::path& location_file_path_to_the_unknown,
-    std::vector<pcl::PointXYZ>& RRT_points,
-    const std::shared_ptr<pcl::PointXYZ>& point_of_interest) {
+    std::vector<pcl::PointXYZ>& RRT_points) {
     std::vector<pcl::PointXYZ> path_to_the_unknown = operator()(
         cloud, start_point, known_point1, known_point2, known_point3,
-        RRT_points, point_of_interest);
+        RRT_points);
     save_points_to_file(path_to_the_unknown, location_file_path_to_the_unknown);
 }

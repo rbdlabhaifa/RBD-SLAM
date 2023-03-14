@@ -12,9 +12,9 @@ namespace PCLOperations {
     /**
      * @brief Given 2 vectors of size 3*1 and 3*1
      * returns the matrix multipication
-     * @param pcl::PointXYZ p1[in] -> is the first point
-     * @param pcl::PointXYZ p2[in] -> is the second point
-     * @return float -> The matrix mul (1*3)*(3*1)
+     * @param[in] p1 - is the first point
+     * @param[in] p2 - is the second point
+     * @returns float - The matrix mul (1*3)*(3*1)
      */
     float operator*(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2);
 

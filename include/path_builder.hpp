@@ -26,32 +26,63 @@ class PathBuilder {
 
     bool debug = true;
 
+    /**
+     * @brief Run DFS to find all paths to leaves in a graph
+     */
     static std::vector<std::vector<pcl::PointXYZ>> get_all_paths_to_leaves(
         const lemon::ListDigraph& graph,
         const lemon::ListDigraph::NodeMap<pcl::PointXYZ>& node_map,
         const lemon::ListDigraph::Node& start_node);
 
+    /**
+     * @brief Returns the mean of distances from the closest k polygons for
+     * every node in the path
+     * @returns a pair containing a vector of the mean distances, vector of
+     * polygon indices
+     */
     static std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>
     get_top_k_polygon_distances(
         const std::vector<pcl::PointXYZ>& path,
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons,
         int k = 10);
 
+    // NOTE: We don't use this function at the moment, but it might be used
+    /**
+     * @brief Gets the index where the polygon indices stop changing
+     */
     static std::size_t get_last_change(
         const std::vector<std::vector<std::size_t>>& polygon_idxs);
 
+    /**
+     * @brief Implementation taken from
+     * https://github.com/numpy/numpy-financial/blob/main/numpy_financial/_financial.py
+     */
     static Eigen::VectorXd g_div_gp(const Eigen::VectorXd& fv,
                                     const Eigen::VectorXd& pv,
                                     const Eigen::VectorXd& rn, int w, int nper,
                                     int pmt);
+
+    /**
+     * @brief Get growth rate of distances from polygons
+     */
     static double get_path_rate(const std::vector<double>& distances);
-    static double get_path_rate(const std::vector<pcl::PointXYZ>& path);
+
+    /**
+     * @brief Split distances into monotonic parts
+     */
     static std::vector<std::vector<double>> split_distances(
         const std::vector<double>& distances);
 
+    // NOTE: This function is not used at the moment, delete?
     static pcl::PointXYZ get_point_of_interest(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
 
+    /**
+     * @brief Run the RRT algorithm and get the best path to navigate
+     * @param known_point[1-3] - points for plane calculation
+     * @param polygons - polygons we use as obstacles for RRT
+     * @param RRT_points - all points of RRT
+     */
     void get_navigation_points(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ& navigate_starting_point,
@@ -59,9 +90,11 @@ class PathBuilder {
         const pcl::PointXYZ& known_point3,
         std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
         std::vector<pcl::PointXYZ>& RRT_points,
-        const std::vector<pcl::PointIndices>& cluster_indices,
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons);
 
+    /**
+     * @brief Find the best path in the RRT graph
+     */
     std::vector<pcl::PointXYZ> find_best_path(
         const lemon::ListDigraph& graph,
         const lemon::ListDigraph::NodeMap<pcl::PointXYZ>& node_map,
@@ -73,52 +106,31 @@ class PathBuilder {
     std::vector<std::vector<pcl::PointXYZ>> best_paths;
 
     /**
-     * @brief Returns the path to the unknown
-     * @param cloud[in] -> Entire model
-     * @param StartPoint[in] -> Start Point
-     * @param knownPoint1[in] -> Points needed for creating the plane for RRT
-     * @returns Path to the unknown
-     * */
+     * @brief Get path to the unknown
+     * @param cloud - entire model
+     * @param start_point - start the RRT from this point
+     * @param known_point[1-3] - points for plane calculation
+     */
     std::vector<pcl::PointXYZ> operator()(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ& start_point, const pcl::PointXYZ& known_point1,
         const pcl::PointXYZ& known_point2, const pcl::PointXYZ& known_point3,
-        std::vector<pcl::PointXYZ>& RRT_graph,
-        const std::shared_ptr<pcl::PointXYZ>& point_of_interest = nullptr);
+        std::vector<pcl::PointXYZ>& RRT_graph);
 
-    /**
-     * @brief This function takes parameters and
-     * return the path to the unknown via path_to_the_unknown
-     * variable
-     * @param cloud[in] -> Entire model
-     * @param StartPoint[in] -> Start Point
-     * @param knownPoint1[in] -> Points needed for creating the plane for RRT
-     * @param path_to_the_unknown[out] -> The returned path to the unknown
-     * */
-    void operator()(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-        const pcl::PointXYZ& start_point, const pcl::PointXYZ& known_point1,
-        const pcl::PointXYZ& known_point2, const pcl::PointXYZ& known_point3,
-        std::vector<pcl::PointXYZ>& path_to_the_unknown,
-        std::vector<pcl::PointXYZ>& RRT_graph,
-        const std::shared_ptr<pcl::PointXYZ>& point_of_interest = nullptr);
-    /**
-     * @brief This function takes parameters and
-     * return the path to the unknown via path_to_the_unknown
-     * variable
-     * @override create text file
-     * @param cloud[in] -> Entire model
-     * @param StartPoint[in] -> Start Point
-     * @param knownPoint1[in] -> Points needed for creating the plane for RRT
-     * @param path_to_the_unknown[out] -> The returned path to the unknown
-     * */
+    void operator()(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+                    const pcl::PointXYZ& start_point,
+                    const pcl::PointXYZ& known_point1,
+                    const pcl::PointXYZ& known_point2,
+                    const pcl::PointXYZ& known_point3,
+                    std::vector<pcl::PointXYZ>& path_to_the_unknown,
+                    std::vector<pcl::PointXYZ>& RRT_graph);
+
     void operator()(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ& start_point, const pcl::PointXYZ& known_point1,
         const pcl::PointXYZ& known_point2, const pcl::PointXYZ& known_point3,
         const std::filesystem::path& location_file_path_to_the_unknown,
-        std::vector<pcl::PointXYZ>& RRT_graph,
-        const std::shared_ptr<pcl::PointXYZ>& point_of_interest = nullptr);
+        std::vector<pcl::PointXYZ>& RRT_graph);
 };
 
 #endif  // PATH_BUILDER_H_

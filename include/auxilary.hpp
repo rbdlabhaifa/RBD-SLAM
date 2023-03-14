@@ -18,38 +18,45 @@
 #include <vector>
 
 namespace Auxilary {
+    // NOTE: We don't use this function at the moment, but it might be used
     /**
-     * @brief This function search for additional points in the radius
+     * @brief This function searches for additional points in the radius
      * of "PointXYZ searchPoint"
-     * @param cloud -> The Cloud
-     * @param searchPoint -> the point I am searching around
-     * @param radius -> The radius of search
-     * @return -> number of points that are in the neigbourhood of searchPoint
+     * @param search_point - the point to search around
+     * @param radius - the radius of search
+     * @returns number of points that are in the neigbourhood of searchPoint
      */
     int radius_search(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
                       const pcl::PointXYZ& search_point, float radius,
                       const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree);
 
-    // Hashable function for pcl::PointXYZ
+    // NOTE: We don't use this function at the moment, but it might be used
     /**
-     * @brief
-     * This function build a line between @var start and @var end
+     * @brief This function build a line between @var start and @var end
      * and return all inside the line with distance at least
      * @var jump_distance
-     * @param pcl::PointXYZ start -> 1 of the points to create a line
-     * @param pcl::PointXYZ end -> the other point to create the line
      * @param float jump_distance -> sets the minimum distance of the point on
      * line
-     * @return -> all points on line with distance at least @var jump_distance
+     * @returns all points on line with distance at least @var jump_distance
      */
     std::vector<pcl::PointXYZ> get_points_on_line(const pcl::PointXYZ& start,
                                                   const pcl::PointXYZ& end,
                                                   float jump_distance);
 
+    /**
+     * @brief Run kmeans to get clusters from a point cloud
+     * @param minimum_cluster_size - the minimal cluster size, any smaller
+     * clusters are removed
+     * @returns a vector of sets of indices, containing each cluster's indices
+     */
     std::vector<pcl::PointIndices> get_clusters(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         std::size_t minimum_cluster_size = 60);
 
+    /**
+     * @brief Save clusters gotten from kmeans to pcd files containing each
+     * cluster's points
+     */
     void save_clusters(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud,
                        const std::vector<pcl::PointIndices>& cluster_indices);
 
@@ -57,16 +64,27 @@ namespace Auxilary {
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const std::vector<pcl::PointIndices>& cluster_indices);
 
+    /**
+     * @brief Check if a segment defined by @var start_point and @var end_point
+     * intersects with any of the polygons in @var polygons
+     */
     bool is_valid_movement(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ& current_point, const pcl::PointXYZ& dest_point,
-        const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree, float scale_factor,
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons);
 
+    /**
+     * @brief Check if a segment defined by @var start_point and @var end_point
+     * intersects with the specified @var polygon
+     */
     bool check_polygon_intersection(
         const pcl::PointXYZ& start, const pcl::PointXYZ& end,
         const std::unique_ptr<geos::geom::Geometry>& polygon);
 
+    // NOTE: We don't use this function at the moment, but it might be used
+    /**
+     * @brief Implements the linspace function from numpy
+     */
     template <typename T>
     std::vector<T> linspace(T a, T b, std::size_t N) {
         T h = (b - a) / static_cast<T>(N - 1);
@@ -77,22 +95,48 @@ namespace Auxilary {
         return xs;
     }
 
+    // NOTE: We don't use this function at the moment, but it might be used
+    /**
+     * @brief Get a distances matrix from two point vectors for every pair of
+     * points
+     */
     std::tuple<Eigen::MatrixXf, float, float> get_distances(
         const std::vector<pcl::PointXYZ>& v1,
         const std::vector<pcl::PointXYZ>& v2);
 
+    /**
+     * @returns [vector cross product, first span vector, second span vector,
+     * plane offset] */
     std::tuple<pcl::PointXYZ, pcl::PointXYZ, pcl::PointXYZ, float>
     get_plane_from_3_points(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2,
                             const pcl::PointXYZ& p3);
 
+    /**
+     * @brief Get a random point on plane defined by a cross product and an
+     * offset
+     */
     pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& cp, float d);
+
+    /**
+     * @brief Get a random point on a plane defined by two span vectors
+     */
     pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& span_v1,
                                             const pcl::PointXYZ& span_v2);
+
+    // NOTE: We don't use this function at the moment, and the implementation
+    // might be wrong
+    /**
+     * @brief Given a point on a plane, get a random point on the plane with
+     * some bias towards that point
+     */
     pcl::PointXYZ get_random_point_on_plane(
         const pcl::PointXYZ& start, const pcl::PointXYZ& point_of_interest,
         const pcl::PointXYZ& u1, const pcl::PointXYZ& u2,
         const pcl::PointXYZ& cp);
 
+    /**
+     * @brief Implements the argsort function from numpy
+     */
     template <typename T>
     std::vector<std::size_t> argsort(const std::vector<T>& vec,
                                      bool reverse = false) {
@@ -107,12 +151,19 @@ namespace Auxilary {
         return indices;
     }
 
+    // NOTE: We don't use this function at the moment, but it might be used
     std::vector<pcl::PointXYZ> recursive_robust_median_clustering(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, int k);
 
+    // NOTE: We don't use this function at the moment, but it might be used
     pcl::PointXYZ robust_median(const std::vector<pcl::PointXYZ>& points,
                                 int k);
 
+    /**
+     * @brief Get random indices of a vector
+     * @param vec_length - the vector length
+     * @param amount - amount of indices to generate
+     */
     std::vector<std::size_t> get_random_indices(std::size_t vec_length,
                                                 std::size_t amount);
 

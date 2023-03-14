@@ -24,6 +24,9 @@ namespace SLAMUtils {
     std::pair<cv::Mat, cv::Mat> get_alignment_matrices(
         const std::vector<ORB_SLAM3::MapPoint*>& map_points);
 
+    /**
+     * @brief Convert a Sophus Pose to an OpenCV matrix
+     */
     cv::Mat sophus_to_cv(const Sophus::SE3f& pose);
 
 }  // namespace SLAMUtils

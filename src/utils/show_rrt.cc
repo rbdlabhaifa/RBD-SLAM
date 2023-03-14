@@ -231,8 +231,7 @@ int main(int argc, char** argv) {  // TODO : Redo the point Enter !!!
     Explorer explorer(cloud);
     explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);
     for (int i = 0; i < 30; ++i) {
-        auto path =
-            explorer.get_points_to_unknown((*start_point)[0], 0.001, nullptr);
+        auto path = explorer.get_points_to_unknown((*start_point)[0], 0.001);
         auto graph = explorer.get_last_graph();
         std::cout << "GSIZE " << graph.size() << std::endl;
         visualizer_cloud_and_path(cloud, scale_factor, {path});

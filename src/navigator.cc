@@ -334,7 +334,7 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
                 path_promise.set_value(explorer->get_points_to_unknown(
                     pcl::PointXYZ(last_location.x, last_location.y,
                                   last_location.z),
-                    0.001, nullptr));
+                    0.001));
             },
             std::move(path_promise));
 
@@ -454,5 +454,5 @@ void Navigator::start_navigation(bool use_explorer) {
     Auxilary::save_points_to_file(destinations,
                                   data_dir / "aligned_destinations.xyz");
 
-    update_plane_of_flight();
+    if (use_explorer) update_plane_of_flight();
 }

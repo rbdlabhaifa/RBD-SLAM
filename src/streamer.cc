@@ -13,7 +13,8 @@
 
 using namespace std::chrono_literals;
 
-Streamer::Streamer(std::shared_ptr<SomeDrone> drone, int max_frames_in_queue)
+Streamer::Streamer(std::optional<std::shared_ptr<SomeDrone>> drone,
+                   int max_frames_in_queue)
     : drone(std::move(drone)),
       frame_queue(max_frames_in_queue),
       close_stream(false) {}
@@ -30,10 +31,10 @@ void Streamer::grab_image() {
     std::array<uchar, 640 * 480 * 3> frame_arr{};
     cv::VideoCapture capture;
 
-    if (drone == nullptr) {
-        capture.open(0);
-    } else {
+    if (drone.has_value()) {
         capture.open("udp://0.0.0.0:11111?overrun_nonfatal=1&fifo_size=5000");
+    } else {
+        capture.open(0);
     }
 
     while (!close_stream) {
@@ -47,18 +48,18 @@ void Streamer::grab_image() {
     }
 
     capture.release();
-    if (!close_stream && drone != nullptr) drone->tello_stream_off();
+    if (!close_stream && drone.has_value()) drone.value()->tello_stream_off();
 }
 
 void Streamer::start_stream() {
-    if (drone != nullptr) drone->tello_stream_on();
+    if (drone.has_value()) drone.value()->tello_stream_on();
     image_thread = std::thread(&Streamer::grab_image, this);
 }
 
 void Streamer::end_stream() {
     close_stream = true;
     image_thread.join();
-    if (drone != nullptr) drone->send_command("streamoff");
+    if (drone.has_value()) drone.value()->send_command("streamoff");
 
     std::cout << "Stream Closed" << std::endl;
 }

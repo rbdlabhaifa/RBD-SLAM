@@ -104,11 +104,7 @@ namespace Auxilary {
     bool is_valid_movement(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ& current_point, const pcl::PointXYZ& dest_point,
-        const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree, float scale_factor,
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
-        float jump_distance = scale_factor;
-        float radius = 0.1;
-
         return std::all_of(polygons.begin(), polygons.end(),
                            [&](const auto& polygon) {
                                return !check_polygon_intersection(

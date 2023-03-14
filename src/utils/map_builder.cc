@@ -17,6 +17,7 @@
 #include <memory>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -131,7 +132,9 @@ int main(int argc, char** argv) {
     std::shared_ptr<Drone> drone =
         use_webcam ? nullptr : std::make_shared<Drone>();
 
-    Streamer streamer(drone);
+    Streamer streamer(use_webcam
+                          ? std::nullopt
+                          : std::optional<std::shared_ptr<SomeDrone>>{drone});
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue =
         streamer.get_frame_queue();
 

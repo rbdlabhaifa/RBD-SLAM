@@ -14,12 +14,17 @@ class Explorer {
     bool got_plane_of_flight = false;
 
    public:
+    /// Keeps k best paths we found
+    std::vector<std::vector<pcl::PointXYZ>> best_paths;
+
     explicit Explorer(
         const std::vector<Eigen::Matrix<double, 3, 1>>& map_points);
 
     explicit Explorer(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud);
-    std::vector<std::vector<pcl::PointXYZ>> best_paths;
 
+    /**
+     * @brief Add points from ORB_SLAM to the internal point cloud
+     */
     void add_points_to_cloud(
         const std::vector<Eigen::Matrix<double, 3, 1>>& map_points);
     std::vector<pcl::PointXYZ> get_last_graph();
@@ -33,9 +38,12 @@ class Explorer {
 
     bool is_set_plane_of_flight() const { return got_plane_of_flight; }
 
+    // NOTE: The scale_factor is not used at the moment
+    /**
+     * @brief Use the path builder API to get a path to the unknown
+     */
     std::vector<pcl::PointXYZ> get_points_to_unknown(
-        const pcl::PointXYZ& start_point, float scale_factor = 0.2,
-        const std::shared_ptr<pcl::PointXYZ>& point_of_interest = nullptr);
+        const pcl::PointXYZ& start_point, float scale_factor = 0.2);
 };
 
 #endif  // EXPLORER_H_

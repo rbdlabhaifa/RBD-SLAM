@@ -9,6 +9,7 @@
 #include <iterator>
 #include <memory>
 #include <opencv2/core/types.hpp>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -88,7 +89,9 @@ int main(int argc, char* argv[]) {
                    : std::make_shared<Drone>(!fake_drone);
     drone->activate_drone();
 
-    Streamer streamer(use_webcam ? nullptr : drone);
+    Streamer streamer(use_webcam
+                          ? std::nullopt
+                          : std::optional<std::shared_ptr<SomeDrone>>{drone});
 
     const std::filesystem::path data_dir =
         create_new_directory_named_current_time();
