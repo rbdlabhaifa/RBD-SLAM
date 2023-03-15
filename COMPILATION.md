@@ -1,6 +1,10 @@
 # Compilation
 
-To compile the project, first install all of the dependencies specified in [README.md](README.md), then execute the following:
+## Dependencies Installation
+
+To install the dependencies in [README.md](README.md), either install them manually or run the script `./install_dependencies.sh` for Ubuntu
+
+To compile the project, execute the following:
 
 ```bash
 git clone --recursive https://github.com/rbdlabhaifa/RBD-SLAM
