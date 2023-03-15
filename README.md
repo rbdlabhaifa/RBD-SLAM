@@ -37,6 +37,8 @@ For running `show_rrt`, in a folder with files `map.pcd` containing the map, `pl
 ./show_rrt map.pcd plane_points.pcd start.pcd radius
 ```
 
+NOTE: Stop button in ORB_SLAM is not always functional, and Ctrl-C is required to stop the program
+
 ## Converting .xyz files to .pcd
 
 ```bash
