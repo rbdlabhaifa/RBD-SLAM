@@ -40,6 +40,13 @@ Compilation instructions are located in [COMPILATION.md](COMPILATION.md)
 
 ## Running the applications
 
+First, extract the `ORBVoc.txt.tar.gz` file for the ORB vocabulary:
+
+```bash
+cd Configuration/Vocabulary
+tar xvfz ORBvoc.txt.tar.gz
+```
+
 For running `auto_navigation`, with the options `--use-webcam` for using the webcam instead of the drone's camera, and `--fake-drone` for not sending commands to the drone, execute:
 
 ```bash
