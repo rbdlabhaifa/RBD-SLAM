@@ -2,6 +2,21 @@
 
 A system that navigates the drone automatically and finds points of interest to navigate
 
+## Project State
+
+At the moment, the algorithms we implemented can control the drone and exit a room (~60-70% of the time).
+
+There are some "magic numbers" in the code:
+
+1. K for KMeans - we use KMeans to close off obstacles as polygons, to decrease sparsity.
+2. Minimum cluster size - the minimal cluster size for KMeans. We drop the clusters smaller than this size.
+
+The general approach for finding a "good" path in the RRT is a path that distances itself from the polygons in the map.
+
+## Future Work
+
+Future work for the project will be adjusting these "magic numbers" according to the data in the map supplied. Also, because we use RRT, we need to check that "cutting off" "good" paths in the tree works as expected, and this will prevent hitting a wall etc. Adjusting the said parameters will also close off the room better and won't leave holes in the map which the RRT can exit from.
+
 ## Dependencies
 
 1. [PCL](https://pointclouds.org/) - Point Cloud Library
