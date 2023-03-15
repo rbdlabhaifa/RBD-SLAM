@@ -45,12 +45,13 @@ namespace Auxilary {
 
     /**
      * @brief Run kmeans to get clusters from a point cloud
+     * @param k - number of clusters
      * @param minimum_cluster_size - the minimal cluster size, any smaller
      * clusters are removed
      * @returns a vector of sets of indices, containing each cluster's indices
      */
     std::vector<pcl::PointIndices> get_clusters(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, int k = 100,
         std::size_t minimum_cluster_size = 60);
 
     /**

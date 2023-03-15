@@ -145,7 +145,7 @@ namespace Auxilary {
     }
 
     std::vector<pcl::PointIndices> get_clusters(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, int k,
         std::size_t minimum_cluster_size) {
         cv::Mat points(cloud->size(), 1, CV_32FC3);
         cv::Mat labels;
@@ -156,10 +156,9 @@ namespace Auxilary {
             points.at<cv::Point3f>(i) = cv::Point3f(p.x, p.y, p.z);
         }
 
-        double compactness =
-            cv::kmeans(points, 100, labels,
-                       cv::TermCriteria(cv::TermCriteria::EPS, 10, 0.2), 10,
-                       cv::KMEANS_PP_CENTERS, centers);
+        double compactness = cv::kmeans(
+            points, k, labels, cv::TermCriteria(cv::TermCriteria::EPS, 10, 0.2),
+            10, cv::KMEANS_PP_CENTERS, centers);
 
         std::vector<pcl::PointIndices> cluster_indices(centers.size());
 
