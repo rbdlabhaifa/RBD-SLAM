@@ -18,9 +18,6 @@
 #include "auxilary.hpp"
 
 class PathBuilder {
-    float scale_factor;
-    const float change_scale_factor = 0.1;
-    const std::size_t tries_scale_factor = 10;
     const std::size_t how_long_valid_path = 5;
     const int rrt_graph_max_size = 3000;
 
@@ -88,7 +85,7 @@ class PathBuilder {
         const pcl::PointXYZ& navigate_starting_point,
         const pcl::PointXYZ& known_point1, const pcl::PointXYZ& known_point2,
         const pcl::PointXYZ& known_point3,
-        std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
+        std::vector<pcl::PointXYZ>& path_to_the_unknown,
         std::vector<pcl::PointXYZ>& RRT_points,
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons);
 
@@ -102,7 +99,6 @@ class PathBuilder {
         const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons);
 
    public:
-    explicit PathBuilder(float scale_factor = 0.2);
     std::vector<std::vector<pcl::PointXYZ>> best_paths;
 
     /**

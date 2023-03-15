@@ -331,10 +331,9 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
 
         std::thread get_path_to_unknown(
             [&](std::promise<std::vector<pcl::PointXYZ>> path_promise) {
-                path_promise.set_value(explorer->get_points_to_unknown(
-                    pcl::PointXYZ(last_location.x, last_location.y,
-                                  last_location.z),
-                    0.001));
+                path_promise.set_value(
+                    explorer->get_points_to_unknown(pcl::PointXYZ(
+                        last_location.x, last_location.y, last_location.z)));
             },
             std::move(path_promise));
 

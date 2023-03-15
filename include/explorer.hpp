@@ -43,7 +43,7 @@ class Explorer {
      * @brief Use the path builder API to get a path to the unknown
      */
     std::vector<pcl::PointXYZ> get_points_to_unknown(
-        const pcl::PointXYZ& start_point, float scale_factor = 0.2);
+        const pcl::PointXYZ& start_point);
 };
 
 #endif  // EXPLORER_H_

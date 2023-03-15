@@ -30,7 +30,6 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED)
 find_package(LEMON REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
-find_package(spdlog REQUIRED)
 find_package(GEOS REQUIRED)
 
 include_directories(${PCL_INCLUDE_DIRS})

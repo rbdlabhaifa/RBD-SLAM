@@ -30,8 +30,6 @@ using namespace Auxilary;
 using namespace PCLOperations;
 using namespace EigenOperations;
 
-PathBuilder::PathBuilder(float scale_factor) : scale_factor(scale_factor) {}
-
 std::size_t PathBuilder::get_last_change(
     const std::vector<std::vector<std::size_t>>& polygon_idxs) {
     auto p_idxs = polygon_idxs;
@@ -403,7 +401,7 @@ void PathBuilder::get_navigation_points(
     const pcl::PointXYZ& navigate_starting_point,
     const pcl::PointXYZ& known_point1, const pcl::PointXYZ& known_point2,
     const pcl::PointXYZ& known_point3,
-    std::vector<pcl::PointXYZ>& path_to_the_unknown, float scale_factor,
+    std::vector<pcl::PointXYZ>& path_to_the_unknown,
     std::vector<pcl::PointXYZ>& RRT_points,
     const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
@@ -495,14 +493,13 @@ std::vector<pcl::PointXYZ> PathBuilder::operator()(
     std::size_t tries = 30;
     while (path_to_the_unknown.empty() && tries-- > 0) {
         std::cout << "NOT VALID" << std::endl;
-        static std::size_t tries_scale_factor_until_change = tries_scale_factor;
 
         path_to_the_unknown.clear();
         RRT_points.clear();
 
         get_navigation_points(cloud, start_point, known_point1, known_point2,
-                              known_point3, path_to_the_unknown, scale_factor,
-                              RRT_points, convexhulls);
+                              known_point3, path_to_the_unknown, RRT_points,
+                              convexhulls);
 
         if (tries % 10 == 0) {
             cluster_indices = get_clusters(cloud);
