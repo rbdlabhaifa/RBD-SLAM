@@ -61,7 +61,7 @@ bool find_arg(int argc, char* const argv[], const std::string& arg) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 4) {
+    if (argc < 3) {
         std::cerr << "USAGE: " << argv[0]
                   << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH "
                      "[--use-webcam] [--fake-drone]"
