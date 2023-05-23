@@ -364,20 +364,37 @@ std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
                    });
 
     std::vector<double> rates;
-
+    std::cout << "Starting distances computation" << std::endl;
     std::transform(polygon_distances.begin(), polygon_distances.end(),
                    std::back_inserter(rates), [](const auto& distances) {
                        return get_path_rate(std::get<0>(distances));
                    });
+    
+    std::cout << "Ended  distances computation" << std::endl;
 
     const auto rate_indices = argsort(rates, true);
-
-    const auto& max_distances = polygon_distances[rate_indices[0]];
-    if (std::get<0>(max_distances).size() < how_long_valid_path) {
-        return {};
+    
+    std::cout << "Sorted rates" << std::endl;
+    int counter = 0;
+    int idx = 0;
+    auto& max_distances = polygon_distances[rate_indices[idx]];
+    while(1){
+        max_distances = polygon_distances[rate_indices[idx]];
+        if (std::get<0>(max_distances).size() < how_long_valid_path)
+        {
+            idx++;
+        }else {
+            break;
+        }
+        if (counter >= 60) {
+            std::cout << "bad!!!!!!" << std::endl;
+            return {};
+        }
     }
-
+    
+    std::cout << "splitted distances started" << std::endl;
     const auto parts = split_distances(std::get<0>(max_distances));
+    std::cout << "splitted distances ended" << std::endl;
 
     for (const auto& part : parts) {
         std::cout << "PART:" << std::endl;
@@ -398,7 +415,7 @@ std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
                   std::get<0>(max_distances).end(),
                   [](const auto& ds) { std::cout << ds << std::endl; });
 
-    auto path_to_the_unknown = paths[rate_indices[0]];
+    auto path_to_the_unknown = paths[rate_indices[idx]];
 
     std::size_t original_size = path_to_the_unknown.size();
 
@@ -489,8 +506,8 @@ void PathBuilder::get_navigation_points(
     int rrt_size = 0;
     std::vector<float> Cntr{Center.at<float>(0,0), Center.at<float>(0,1), Center.at<float>(0,2)};
     for (int i = 0; i < rrt_graph_max_size; ++i) {
-    	float R = ((i / 300) + 1) * 2; 
-	    float r = (i / 300 ) * 2;
+    	float R = ((i / 200) + 1) * 2; 
+	    float r = (i / 200 ) * 2;
         pcl::PointXYZ point_rand =
             get_random_point_on_plane(span_v1_gs, span_v2_gs,Cntr, R, r) + plane_mean;
 
