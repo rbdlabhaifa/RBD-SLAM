@@ -6,7 +6,8 @@
 #include <lemon/path.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/kdtree/kdtree_flann.h>
-
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -21,11 +22,14 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
-
+#include <pcl/impl/point_types.hpp>
 #include "auxilary.hpp"
 #include "eigen_operations.hpp"
 #include "pcl_operations.hpp"
+#include <Eigen/Dense>
+#include <opencv2/core/mat.hpp>
 
+#include <opencv2/core.hpp>
 using namespace Auxilary;
 using namespace PCLOperations;
 using namespace EigenOperations;
@@ -293,6 +297,7 @@ pcl::PointXYZ PathBuilder::get_point_of_interest(
     float max_alpha = 0;
     int max_index = -1;
     auto R_s = linspace(min_val, mean_val, 10);
+    std::cout << "min_val is " << min_val << " mean_val is " << mean_val << std::endl;
     float* R_s_data = R_s.data();
     Eigen::VectorXf R_s_eigen =
         Eigen::Map<Eigen::VectorXf, Eigen::Unaligned>(R_s_data, R_s.size());
@@ -334,7 +339,20 @@ std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
     const lemon::ListDigraph::Node& start_node,
     const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
     const auto paths = get_all_paths_to_leaves(graph, node_map, start_node);
-
+    std::cout << "rrt path points:" << std::endl;
+    std::string filename = "tree.csv";
+    std::ofstream file(filename);
+    if(!file.is_open()) { 
+    	std::cerr << "Error opening file: " << filename << std::endl;
+    }
+    for(size_t i = 0; i< paths.size() ; ++i){
+    	const auto& cloud = paths[i];
+    	for ( const auto& point : cloud){
+    		file << point.x << " " << point.y << " " << point.z << std::endl;
+    	}
+    }
+    file.close();
+    std::cout<< " point cloud saved to : " << filename<< std::endl;
     std::vector<
         std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>>
         polygon_distances;
@@ -406,6 +424,12 @@ void PathBuilder::get_navigation_points(
     const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
+    std::cout << "vector RRT size: " << path_to_the_unknown.size() << std::endl;
+    std::cout << "rrt ponts tree:" << std::endl;
+    for( const auto& node : path_to_the_unknown){
+    	std::cout << "we are here" << std::endl;
+    	std::cout << node.x << " " << node.y << " " << node.z << " " << std::endl;
+    }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr RRT_cloud(
         new pcl::PointCloud<pcl::PointXYZ>);
@@ -418,6 +442,9 @@ void PathBuilder::get_navigation_points(
 
     navigate_data->push_back(navigate_starting_point);
     lemon::ListDigraph::Node first_node = RRT_graph.addNode();
+    auto map_filename = "start.xyz";
+    cv::Point3f navigateCv = cv::Point3f(navigate_starting_point.x,navigate_starting_point.y,navigate_starting_point.z);
+    Auxilary::save_points_to_file({navigateCv}, map_filename);
 
     node_to_point[first_node] = navigate_starting_point;
 
@@ -429,11 +456,43 @@ void PathBuilder::get_navigation_points(
     auto [cp, span_v1_gs, span_v2_gs, d] = get_plane_from_3_points(
         known_point1 - plane_mean, known_point2 - plane_mean,
         known_point3 - plane_mean);
-
+	// shershor for the A's to calculate the center
+    std::cout << "starting shershor" << std::endl;
+    //Eigen::Matrix2d A(2,3);
+    cv::Mat A;
+    A = cv::Mat::zeros(2, 3, CV_32F);
+    A.at<float>(0,0) = span_v1_gs.x; 
+    A.at<float>(0,1) = span_v1_gs.y;
+    A.at<float>(0,2) = span_v1_gs.z;
+    A.at<float>(1,0) = span_v2_gs.x;
+    A.at<float>(1,1) = span_v2_gs.y;
+    A.at<float>(1,2) = span_v2_gs.z;
+    std::cout << "We are building A..." << std::endl;
+  
+    cv::Mat X = cv::Mat::zeros(1, 3, CV_32F);
+    cv::Mat Ainv = cv::Mat::zeros(3, 2, CV_32F);
+    // Eigen::Matrix2d X(1,3);
+    // Eigen::Matrix2d Ainv(3,2);
+    std::cout << "We did the inverse matrix A !!!" << std::endl;
+    invert(A, Ainv, cv::DECOMP_SVD);
+    // Ainv = A.completeOrthogonalDecomposition().pseudoInverse();
+    // X << navigate_starting_point.x, navigate_starting_point.y, navigate_starting_point.z;
+    X.at<float>(0,0) = navigate_starting_point.x;
+    X.at<float>(0,1) = navigate_starting_point.y;
+    X.at<float>(0,2) = navigate_starting_point.z;
+    cv::Mat Center = cv::Mat::zeros(1, 2, CV_32F);
+    // Eigen::Matrix2d Center(1,2);
+    
+    std::cout << "the A inverse is: "<< std::endl;
+    Center = X * Ainv;
+    std::cout << "The center is: " << std::endl;
     int rrt_size = 0;
+    std::vector<float> Cntr{Center.at<float>(0,0), Center.at<float>(0,1), Center.at<float>(0,2)};
     for (int i = 0; i < rrt_graph_max_size; ++i) {
+    	float R = ((i / 300) + 1) * 2; 
+	    float r = (i / 300 ) * 2;
         pcl::PointXYZ point_rand =
-            get_random_point_on_plane(span_v1_gs, span_v2_gs) + plane_mean;
+            get_random_point_on_plane(span_v1_gs, span_v2_gs,Cntr, R, r) + plane_mean;
 
         navigate_tree.setInputCloud(navigate_data);
 
@@ -469,11 +528,21 @@ void PathBuilder::get_navigation_points(
     }
 
     std::cout << "FINISHED RRT with size " << rrt_size << std::endl;
-
+    
+    pcl::PointCloud<pcl::PointXYZ>::Ptr whole_tree(
+        new pcl::PointCloud<pcl::PointXYZ>);
+    
+    for (int i = 0; i < rrt_graph_max_size; ++i) {
+    	
+    }
     if (lemon::countNodes(RRT_graph) < 50) return;
 
     path_to_the_unknown =
         find_best_path(RRT_graph, node_to_point, first_node, polygons);
+        
+    auto end_point = "end.xyz";
+    cv::Point3f end_pointCV = cv::Point3f(path_to_the_unknown.back().x,path_to_the_unknown.back().y,path_to_the_unknown.back().z);
+    Auxilary::save_points_to_file({end_pointCV}, end_point);
 
     for (lemon::ListDigraph::NodeIt it(RRT_graph); it != lemon::INVALID; ++it) {
         RRT_points.push_back(node_to_point[it]);
@@ -538,3 +607,24 @@ void PathBuilder::operator()(
         RRT_points);
     save_points_to_file(path_to_the_unknown, location_file_path_to_the_unknown);
 }
+
+/*std::vector<float> getRandomPointFrom3DRing(std::vector<float>& center,  float R,  float r){
+	float norm_of_point = 0;
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(0,R - r);
+	std::uniform_real_distribution<float> dis2(-1,1);
+	pcl::PointXYZ rand_vec = pcl::PointXYZ(dis2(gen), dis2(gen),dis2(gen));
+	float norm_of_rand_vec = 0;
+	float v = dis(gen) + r;
+	std::vector<float> randVec{rand_vec.x, rand_vec.y};
+	for(int i=0; i<2; i++){
+		norm_of_rand_vec += (randVec[i] * randVec[i]); }
+		
+	norm_of_rand_vec = std::sqrt(norm_of_rand_vec);
+	for(int i=0; i<2; i++){
+		randVec[i] = randVec[i] / norm_of_rand_vec * v + center[i]; 
+		}
+		return {randVec[0], randVec[1]};
+		
+}*/
