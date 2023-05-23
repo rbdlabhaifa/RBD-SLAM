@@ -1,11 +1,12 @@
 #include "auxilary.hpp"
+#include <geos_c.h>
 
-#include <geom/GeometryComponentFilter.h>
+#include <geos/geom/GeometryComponentFilter.h>
 #include <geos/geom/Coordinate.h>
 #include <geos/geom/CoordinateSequence.h>
-#include <geos/geom/CoordinateSequenceFactory.h>
 #include <geos/geom/GeometryFactory.h>
 #include <geos/geom/Polygon.h>
+#include <geos/geom/CoordinateSequenceFactory.h>
 #include <pcl/io/pcd_io.h>
 
 #include <algorithm>
@@ -30,6 +31,7 @@
 #include "eigen_operations.hpp"
 #include "pcl_operations.hpp"
 
+
 using namespace PCLOperations;
 using namespace EigenOperations;
 
@@ -37,6 +39,7 @@ namespace Auxilary {
     int radius_search(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
                       const pcl::PointXYZ& search_point, float radius,
                       const pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree) {
+                      std::cout<< radius << std::endl;
         std::vector<int> point_idx_radius_search;
         std::vector<float> point_radius_squared_distance;
 
@@ -127,6 +130,7 @@ namespace Auxilary {
 
         return {cp, span_v1_gs, span_v2_gs, d};
     }
+    
 
     void save_clusters(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud,
                        const std::vector<pcl::PointIndices>& cluster_indices) {
@@ -324,6 +328,26 @@ namespace Auxilary {
 
         return centers;
     }
+    std::vector<float> getRandomPointFrom3DRing(std::vector<float>& center,  float R,  float r){
+	float norm_of_point = 0;
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(0,R - r);
+	std::uniform_real_distribution<float> dis2(-1,1);
+	pcl::PointXYZ rand_vec = pcl::PointXYZ(dis2(gen), dis2(gen),dis2(gen));
+	float norm_of_rand_vec = 0;
+	float v = dis(gen) + r;
+	std::vector<float> randVec{rand_vec.x, rand_vec.y};
+	for(int i=0; i<2; i++){
+		norm_of_rand_vec += (randVec[i] * randVec[i]); }
+		
+	norm_of_rand_vec = std::sqrt(norm_of_rand_vec);
+	for(int i=0; i<2; i++){
+		randVec[i] = randVec[i] / norm_of_rand_vec * v + center[i]; 
+		}
+		return {randVec[0], randVec[1]};
+		
+}
 
     pcl::PointXYZ get_random_point_on_plane(
         const pcl::PointXYZ& start, const pcl::PointXYZ& point_of_interest,
@@ -351,13 +375,19 @@ namespace Auxilary {
     }
 
     pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& span_v1,
-                                            const pcl::PointXYZ& span_v2) {
+                                            const pcl::PointXYZ& span_v2,
+                                            std::vector<float>& center,
+                                            float R,
+                                            float r) {
         std::random_device rd;
         std::mt19937 gen(rd());
         // std::normal_distribution<float> dis(0, std::sqrt(50));
         std::uniform_real_distribution<float> dis(-30, 30);
-
-        return dis(gen) * span_v1 + dis(gen) * span_v2;
+	// get the x and y random distrubtions from getRandomPointFrom3DRing function and use it instead of dis(gen)
+	std::vector<float> vec = getRandomPointFrom3DRing(center, R, r);
+	//float rand_y = (getRandomPointFrom3DRing(center, R, r))[1];
+	
+        return vec[0] * span_v1 + vec[1] * span_v2;
     }
 
     pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& cp, float d) {
