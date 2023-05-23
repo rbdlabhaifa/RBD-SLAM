@@ -16,6 +16,7 @@
 #include <opencv2/core/types.hpp>
 #include <pcl/impl/point_types.hpp>
 #include <vector>
+#include <geos_c.h>
 
 namespace Auxilary {
     // NOTE: We don't use this function at the moment, but it might be used
@@ -51,8 +52,8 @@ namespace Auxilary {
      * @returns a vector of sets of indices, containing each cluster's indices
      */
     std::vector<pcl::PointIndices> get_clusters(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, int k = 100,
-        std::size_t minimum_cluster_size = 60);
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, int k = 1000,
+        std::size_t minimum_cluster_size = 10);
 
     /**
      * @brief Save clusters gotten from kmeans to pcd files containing each
@@ -121,8 +122,12 @@ namespace Auxilary {
     /**
      * @brief Get a random point on a plane defined by two span vectors
      */
+    std::vector<float> getRandomPointFrom3DRing(std::vector<float>& center,  float R,  float r);
     pcl::PointXYZ get_random_point_on_plane(const pcl::PointXYZ& span_v1,
-                                            const pcl::PointXYZ& span_v2);
+                                            const pcl::PointXYZ& span_v2,
+                                            std::vector<float>& center,
+                                            float R,
+                                            float r);
 
     // NOTE: We don't use this function at the moment, and the implementation
     // might be wrong
