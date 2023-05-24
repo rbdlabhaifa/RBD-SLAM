@@ -353,6 +353,20 @@ std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
     }
     file.close();
     std::cout<< " point cloud saved to : " << filename<< std::endl;
+    std::string filename1 = "paths.csv";
+    std::ofstream file1(filename1);
+    if(!file1.is_open()) { 
+    	std::cerr << "Error opening file: " << filename1 << std::endl;
+    }
+    for(size_t i = 0; i< paths.size() ; ++i){
+    	const auto& path = paths[i];
+    	for ( const auto& point : path){
+    		file1 << point.x << " " << point.y << " " << point.z ;
+    	}
+        file1 << std::endl;
+    }
+    file1.close();
+    std::cout<< " paths saved to : " << filename1 << std::endl;
     std::vector<
         std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>>
         polygon_distances;
@@ -506,8 +520,8 @@ void PathBuilder::get_navigation_points(
     int rrt_size = 0;
     std::vector<float> Cntr{Center.at<float>(0,0), Center.at<float>(0,1), Center.at<float>(0,2)};
     for (int i = 0; i < rrt_graph_max_size; ++i) {
-    	float R = ((i / 200) + 1) * 2; 
-	    float r = (i / 200 ) * 2;
+        float R = ((i / 300) + 0.5) * 1.5; 
+	    float r = (i / 300 ) * 1.5;
         pcl::PointXYZ point_rand =
             get_random_point_on_plane(span_v1_gs, span_v2_gs,Cntr, R, r) + plane_mean;
 
