@@ -32,10 +32,13 @@ void visualizer_cloud_and_path(
     std::vector<std::vector<pcl::PointXYZ>> paths
 
 ) {
+	std::cout<< " in visualizer" << std:: endl;
     pcl::visualization::PCLVisualizer::Ptr viewer(
         new pcl::visualization::PCLVisualizer("3D Viewer"));
     viewer->setBackgroundColor(0, 0, 0);
     viewer->addPointCloud<pcl::PointXYZ>(cloud, "sample cloud");
+    
+    	std::cout<< " segfault 1" << std:: endl;
 
     int index = 0;
     for (std::size_t i = 0; i < paths.size(); ++i) {
@@ -51,16 +54,19 @@ void visualizer_cloud_and_path(
             }
             // index++;
         }
+        
+        std::cout<< " segfault 2" << std:: endl;
 
-        int data = 0;
     }
     while (!viewer->wasStopped()) {
-        viewer->spinOnce();
+        viewer->spin();
         std::this_thread::sleep_for(5ms);
     }
+    std::cout<< " segfault 3" << std:: endl;
 }
 
 void viewRRTFunction(pcl::visualization::PCLVisualizer::Ptr viewer) {
+	std::cout<< " in view rrt funvtion" << std:: endl;
     while (!viewer->wasStopped()) {
         viewer->spinOnce(100);
         std::this_thread::sleep_for(100ms);
@@ -68,6 +74,7 @@ void viewRRTFunction(pcl::visualization::PCLVisualizer::Ptr viewer) {
 }
 pcl::visualization::PCLVisualizer::Ptr shapesVis(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
+    std::cout<< " in shapesvis" << std:: endl;
     pcl::visualization::PCLVisualizer::Ptr viewer(
         new pcl::visualization::PCLVisualizer("3D Viewer"));
     viewer->setBackgroundColor(0, 0, 0);

@@ -333,12 +333,7 @@ pcl::PointXYZ PathBuilder::get_point_of_interest(
     return (*cloud)[max_index];
 }
 
-std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
-    const lemon::ListDigraph& graph,
-    const lemon::ListDigraph::NodeMap<pcl::PointXYZ>& node_map,
-    const lemon::ListDigraph::Node& start_node,
-    const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
-    const auto paths = get_all_paths_to_leaves(graph, node_map, start_node);
+void saveTree(const std::vector<std::vector<pcl::PointXYZ>>& paths){
     std::cout << "rrt path points:" << std::endl;
     std::string filename = "tree.csv";
     std::ofstream file(filename);
@@ -353,6 +348,9 @@ std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
     }
     file.close();
     std::cout<< " point cloud saved to : " << filename<< std::endl;
+}
+
+void savePaths(const std::vector<std::vector<pcl::PointXYZ>>& paths){
     std::string filename1 = "paths.csv";
     std::ofstream file1(filename1);
     if(!file1.is_open()) { 
@@ -361,12 +359,54 @@ std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
     for(size_t i = 0; i< paths.size() ; ++i){
     	const auto& path = paths[i];
     	for ( const auto& point : path){
-    		file1 << point.x << " " << point.y << " " << point.z ;
+    		file1 << point.x << " " << point.y << " " << point.z << " " ;
     	}
         file1 << std::endl;
     }
     file1.close();
     std::cout<< " paths saved to : " << filename1 << std::endl;
+}
+
+std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
+    const lemon::ListDigraph& graph,
+    const lemon::ListDigraph::NodeMap<pcl::PointXYZ>& node_map,
+    const lemon::ListDigraph::Node& start_node,
+    const std::vector<std::unique_ptr<geos::geom::Geometry>>& polygons) {
+    const auto paths = get_all_paths_to_leaves(graph, node_map, start_node);
+    saveTree(paths);
+    savePaths(paths);
+    // make a function to save the points
+    // std::cout << "rrt path points:" << std::endl;
+    // std::string filename = "tree.csv";
+    // std::ofstream file(filename);
+    // if(!file.is_open()) { 
+    // 	std::cerr << "Error opening file: " << filename << std::endl;
+    // }
+    // for(size_t i = 0; i< paths.size() ; ++i){
+    // 	const auto& cloud = paths[i];
+    // 	for ( const auto& point : cloud){
+    // 		file << point.x << " " << point.y << " " << point.z << std::endl;
+    // 	}
+    // }
+    // file.close();
+    // std::cout<< " point cloud saved to : " << filename<< std::endl;
+    //-------------------------
+    // function to print paths
+    // std::string filename1 = "paths.csv";
+    // std::ofstream file1(filename1);
+    // if(!file1.is_open()) { 
+    // 	std::cerr << "Error opening file: " << filename1 << std::endl;
+    // }
+    // for(size_t i = 0; i< paths.size() ; ++i){
+    // 	const auto& path = paths[i];
+    // 	for ( const auto& point : path){
+    // 		file1 << point.x << " " << point.y << " " << point.z << " " ;
+    // 	}
+    //     file1 << std::endl;
+    // }
+    // file1.close();
+    // std::cout<< " paths saved to : " << filename1 << std::endl;
+
     std::vector<
         std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>>
         polygon_distances;
@@ -558,7 +598,7 @@ void PathBuilder::get_navigation_points(
         }
     }
 
-    std::cout << "FINISHED RRT with size " << rrt_size << std::endl;
+    std::cout << "FINISHED RRT with size: " << rrt_size << std::endl;
     
     pcl::PointCloud<pcl::PointXYZ>::Ptr whole_tree(
         new pcl::PointCloud<pcl::PointXYZ>);
@@ -639,24 +679,5 @@ void PathBuilder::operator()(
     save_points_to_file(path_to_the_unknown, location_file_path_to_the_unknown);
 }
 
-/*std::vector<float> getRandomPointFrom3DRing(std::vector<float>& center,  float R,  float r){
-	float norm_of_point = 0;
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_real_distribution<float> dis(0,R - r);
-	std::uniform_real_distribution<float> dis2(-1,1);
-	pcl::PointXYZ rand_vec = pcl::PointXYZ(dis2(gen), dis2(gen),dis2(gen));
-	float norm_of_rand_vec = 0;
-	float v = dis(gen) + r;
-	std::vector<float> randVec{rand_vec.x, rand_vec.y};
-	for(int i=0; i<2; i++){
-		norm_of_rand_vec += (randVec[i] * randVec[i]); }
-		
-	norm_of_rand_vec = std::sqrt(norm_of_rand_vec);
-	for(int i=0; i<2; i++){
-		randVec[i] = randVec[i] / norm_of_rand_vec * v + center[i]; 
-		}
-		return {randVec[0], randVec[1]};
-		
-}*/
+
 

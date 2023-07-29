@@ -26,9 +26,12 @@
 #include "slam_utils.hpp"
 #include "streamer.hpp"
 
+
 #define DESTINATIONS_FILE_NAME "drone_destinations.txt"
 
 using namespace std::chrono_literals;
+
+std::filesystem::path current_directory_path;
 
 static bool continue_session = false;
 
@@ -42,6 +45,7 @@ std::filesystem::path create_new_directory_named_current_time() {
     std::filesystem::path directory_named_time = current_time;
 
     std::filesystem::create_directories(directory_named_time);
+    std::cout << "out---------------------------------------------" << std::endl;
     return directory_named_time;
 }
 
@@ -53,6 +57,11 @@ void save_point_data(ORB_SLAM3::System& SLAM,
         directory / "aligned_point_data.xyz";
     const std::filesystem::path aligned_destinations_xyz_path =
         directory / "aligned_destinations.xyz";
+
+    // Jerry additions ----------------
+    
+
+    // -------------------------------------------------
 
     const std::vector<ORB_SLAM3::MapPoint*> map_points =
         SLAM.GetAtlas()
