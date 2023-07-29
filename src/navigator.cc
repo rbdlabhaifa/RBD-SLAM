@@ -295,6 +295,14 @@ void Navigator::get_point_of_interest(
     pof_promise.set_value(point_of_interest);
 }
 
+void deleteFile(const std::string& filePath) {
+    std::string deleteCommand = "rm \"" + filePath + "\"";
+    int deleteResult = system(deleteCommand.c_str());
+    if (deleteResult != 0) {
+        std::cerr << "Error deleting file: " << filePath << std::endl;
+    }
+}
+
 std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
     std::size_t path_size) {
     if (!explorer->is_set_plane_of_flight()) return {};
@@ -359,6 +367,60 @@ std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
     if (path_to_the_unknown.size() > path_size) {
         path_to_the_unknown.resize(path_size);
     }
+
+    // Jerry Additions to save files in correct directory
+    // ---------------------------------------------------------------------------
+    // Specify the file names to copy
+    const std::string treeFileName = "tree.csv";
+    const std::string startFileName = "start.xyz";
+    const std::string endFileName = "end.xyz";
+    const std::string pathsFileName = "paths.csv";
+
+    // Get the current directory
+    char currentDir[FILENAME_MAX];
+    if (!getcwd(currentDir, sizeof(currentDir))) {
+        std::cerr << "Error getting current directory!" << std::endl;
+    }
+
+    // Get the parent directory
+    std::string parentDir = currentDir;
+    size_t pos = parentDir.find_last_of("/\\");
+    if (pos != std::string::npos) {
+        parentDir = parentDir.substr(0, pos);
+    }
+
+    system("pwd");
+
+    // // Check if the files exist in the parent directory
+    // std::ifstream treeFile(treeFilePath);
+    // std::ifstream startFile(startFilePath);
+    // if (!treeFile || !startFile) {
+    //     std::cout << "One or both files do not exist in the parent directory!" << std::endl;
+    // }
+    // treeFile.close();
+    // startFile.close();
+
+    std::cout << "data_dir is:" << data_dir.string() << "------------" << std::endl;
+
+    // Copy the files to the current directory
+    std::string copyTreeCommand = "cp \"" + treeFileName + "\" \"" + std::string(data_dir) + "/\"";
+    std::string copyStartCommand = "cp \"" + startFileName + "\" \"" + std::string(data_dir) + "/\"";
+    std::string copyEndCommand = "cp \"" + endFileName + "\" \"" + std::string(data_dir) + "/\"";
+    std::string copyPathsCommand = "cp \"" + pathsFileName + "\" \"" + std::string(data_dir) + "/\"";
+    int treeCopyResult = system(copyTreeCommand.c_str());
+    int startCopyResult = system(copyStartCommand.c_str());
+    int endCopyResult = system(copyEndCommand.c_str());
+    int pathsCopyResult = system(copyPathsCommand.c_str());
+
+    if (treeCopyResult == 0 && startCopyResult == 0 && endCopyResult == 0 && pathsCopyResult == 0) {
+        std::cout << "Files copied successfully!" << std::endl;
+    } else {
+        std::cerr << "Error copying files!" << std::endl;
+    }
+
+    std::cout << "should copied the files" << std::endl;
+    // ---------------------------------------------------------------------------
+
     return path_to_the_unknown;
 }
 
@@ -452,6 +514,7 @@ void Navigator::start_navigation(bool use_explorer) {
 
     Auxilary::save_points_to_file(destinations,
                                   data_dir / "aligned_destinations.xyz");
+    
 
     if (use_explorer) update_plane_of_flight();
 }
