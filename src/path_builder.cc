@@ -375,37 +375,6 @@ std::vector<pcl::PointXYZ> PathBuilder::find_best_path(
     const auto paths = get_all_paths_to_leaves(graph, node_map, start_node);
     saveTree(paths);
     savePaths(paths);
-    // make a function to save the points
-    // std::cout << "rrt path points:" << std::endl;
-    // std::string filename = "tree.csv";
-    // std::ofstream file(filename);
-    // if(!file.is_open()) { 
-    // 	std::cerr << "Error opening file: " << filename << std::endl;
-    // }
-    // for(size_t i = 0; i< paths.size() ; ++i){
-    // 	const auto& cloud = paths[i];
-    // 	for ( const auto& point : cloud){
-    // 		file << point.x << " " << point.y << " " << point.z << std::endl;
-    // 	}
-    // }
-    // file.close();
-    // std::cout<< " point cloud saved to : " << filename<< std::endl;
-    //-------------------------
-    // function to print paths
-    // std::string filename1 = "paths.csv";
-    // std::ofstream file1(filename1);
-    // if(!file1.is_open()) { 
-    // 	std::cerr << "Error opening file: " << filename1 << std::endl;
-    // }
-    // for(size_t i = 0; i< paths.size() ; ++i){
-    // 	const auto& path = paths[i];
-    // 	for ( const auto& point : path){
-    // 		file1 << point.x << " " << point.y << " " << point.z << " " ;
-    // 	}
-    //     file1 << std::endl;
-    // }
-    // file1.close();
-    // std::cout<< " paths saved to : " << filename1 << std::endl;
 
     std::vector<
         std::pair<std::vector<double>, std::vector<std::vector<std::size_t>>>>
@@ -542,17 +511,14 @@ void PathBuilder::get_navigation_points(
   
     cv::Mat X = cv::Mat::zeros(1, 3, CV_32F);
     cv::Mat Ainv = cv::Mat::zeros(3, 2, CV_32F);
-    // Eigen::Matrix2d X(1,3);
-    // Eigen::Matrix2d Ainv(3,2);
+    
     std::cout << "We did the inverse matrix A !!!" << std::endl;
     invert(A, Ainv, cv::DECOMP_SVD);
-    // Ainv = A.completeOrthogonalDecomposition().pseudoInverse();
-    // X << navigate_starting_point.x, navigate_starting_point.y, navigate_starting_point.z;
+    
     X.at<float>(0,0) = navigate_starting_point.x;
     X.at<float>(0,1) = navigate_starting_point.y;
     X.at<float>(0,2) = navigate_starting_point.z;
     cv::Mat Center = cv::Mat::zeros(1, 2, CV_32F);
-    // Eigen::Matrix2d Center(1,2);
     
     std::cout << "the A inverse is: "<< std::endl;
     Center = X * Ainv;
