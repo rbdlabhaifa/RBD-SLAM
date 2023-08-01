@@ -78,6 +78,10 @@ pcl_xyz2pcd plane_points.xyz plane_points.pcd
 ../show_rrt map.pcd plane_points.pcd start.pcd 0.1
 ```
 an opengl plot should open and show the RRT results on the map, you can always choose a smaller radius for the points.
+The result should be something like this:-
+
+tree.xyz in the directory holds the whole RRT tree and can be viewed with the map in meshlab likewise.
+
 
 NOTE: Stop button in ORB_SLAM is not always functional, and Ctrl-C is required to stop the program
 
