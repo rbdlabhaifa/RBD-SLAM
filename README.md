@@ -55,6 +55,7 @@ tar xvfz ORBvoc.txt.tar.gz
 ```
 
 For running `auto_navigation`, with the options `--use-webcam` for using the webcam instead of the drone's camera, and `--fake-drone` for not sending commands to the drone, execute:
+
 for regular usage just use the [--use-webcam] argument.
 
 ```bash
@@ -80,7 +81,13 @@ pcl_xyz2pcd plane_points.xyz plane_points.pcd
 an opengl plot should open and show the RRT results on the map, you can always choose a smaller radius for the points.
 The result should be something like this:-
 
+![](images/Screenshot%20from%202023-08-01%2014-12-30.png)
+
+![](images/Screenshot%20from%202023-08-01%2014-13-17.png)
+
 tree.xyz in the directory holds the whole RRT tree and can be viewed with the map in meshlab likewise.
+
+![](images/Screenshot%20from%202023-08-01%2014-14-21.png)
 
 
 NOTE: Stop button in ORB_SLAM is not always functional, and Ctrl-C is required to stop the program
