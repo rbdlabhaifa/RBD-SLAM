@@ -6,7 +6,9 @@
 #include <geos/geom/CoordinateSequence.h>
 #include <geos/geom/GeometryFactory.h>
 #include <geos/geom/Polygon.h>
-#include <geos/geom/CoordinateSequenceFactory.h>
+#include <geos.h>
+#include <initializer_list>
+		
 #include <pcl/io/pcd_io.h>
 
 #include <algorithm>
@@ -93,13 +95,12 @@ namespace Auxilary {
         const pcl::PointXYZ& start, const pcl::PointXYZ& end,
         const std::unique_ptr<geos::geom::Geometry>& polygon) {
         auto geos_factory = geos::geom::GeometryFactory::create();
-        std::vector<geos::geom::Coordinate> coords_vec{
+        const std::initializer_list<Coordinate>& coords_vec{
             {start.x, start.y, start.z}, {end.x, end.y, end.z}};
 
-        auto coords = geos_factory->getCoordinateSequenceFactory()->create(
-            std::move(coords_vec), 3);
+        auto coords = geos::geom::CoordinateSequence(coords_vec);
 
-        auto line = geos_factory->createLineString(std::move(coords));
+        auto line = geos_factory->createLineString(coords);
 
         return line->intersects(polygon.get());
     }

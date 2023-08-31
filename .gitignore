@@ -3,3 +3,5 @@ build/
 lib/
 eigen-3.3.9/
 Configuration/
+deps/
+.vscode/settings.json

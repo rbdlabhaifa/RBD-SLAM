@@ -26,6 +26,20 @@ also we need to reduce the noise around the map so the algorithm can choose the 
 4. OpenCV
 5. [GEOS](https://libgeos.org/) - Geometry Library for Convexhulls etc.
 6. [Boost](https://www.boost.org/) - Used for thread-safe camera streaming
+7. [ctello-fork]
+
+### dependencies clone spacifics
+
+1. [lemon-1.3.1.tar.gz](http://lemon.cs.elte.hu/pub/sources/lemon-1.3.1.tar.gz)
+2. [geos-3.13.0](https://git.osgeo.org/gitea/geos/geos/) - commit - 15185e65b3e7bc671cf693c97cf103125fb4a171
+3. [ctello-fork](https://github.com/mipdableep/ctello_fork.git)
+4. [eigen-3.3.9](https://gitlab.com/libeigen/eigen/-/archive/3.3.9/eigen-3.3.9.tar.gz)
+5. [pangolin](https://github.com/stevenlovegrove/Pangolin.git)
+
+pangolin dependencies: \
+libgl1-mesa-dev libwayland-dev libxkbcommon-dev wayland-protocols libegl1-mesa-dev libc++-dev libglew-dev libeigen3-dev cmake g++ ninja-build
+
+
 
 ## Applications
 

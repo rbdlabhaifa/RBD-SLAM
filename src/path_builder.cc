@@ -103,13 +103,13 @@ PathBuilder::get_top_k_polygon_distances(
 
     for (const auto& p : path) {
         std::vector<double> current_distances;
-
+        geos::geom::Coordinate coard(p.x, p.y, p.z);
         std::transform(polygons.begin(), polygons.end(),
-                       std::back_inserter(current_distances),
-                       [&](const auto& poly) {
-                           return poly->distance(
-                               geos_factory->createPoint({p.x, p.y, p.z}));
-                       });
+                        std::back_inserter(current_distances),
+                        [&](const auto& poly)
+            {
+                return poly->distance(geos_factory->createPoint(coard).get());
+            });
 
         // TODO: maybe we dont need to sort all distances
         auto current_idxs = argsort(current_distances);
