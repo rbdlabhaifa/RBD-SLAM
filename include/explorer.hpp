@@ -15,6 +15,9 @@ class Explorer
     bool got_plane_of_flight = false;
 
   public:
+    // current exit point
+    pcl::PointXYZ exit_point;
+
     /// Keeps k best paths we found
     std::vector<std::vector<pcl::PointXYZ>> best_paths;
 
@@ -45,6 +48,9 @@ class Explorer
      */
     std::vector<pcl::PointXYZ>
     get_points_to_unknown(const pcl::PointXYZ &start_point);
+
+    std::vector<pcl::PointXYZ>
+    get_points_to_exit(const pcl::PointXYZ &start_point);
 };
 
 #endif // EXPLORER_H_

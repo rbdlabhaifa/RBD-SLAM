@@ -42,6 +42,10 @@ target_include_directories(tello_stream PRIVATE include)
 target_link_libraries(tello_stream PRIVATE ${Boost_LIBRARIES} ctello
                                            ${OpenCV_LIBS})
 
+# GOAL Finder
+add_library(goal_finder src/goal_finder.cc)
+target_include_directories(goal_finder PRIVATE include)
+
 # PCL Operations
 add_library(pcl_operations src/pcl_operations.cc)
 target_include_directories(pcl_operations PRIVATE include)
@@ -67,9 +71,6 @@ target_include_directories(slam_utils PRIVATE include ${ORB_SLAM3_INCLUDES})
 target_link_libraries(slam_utils PRIVATE ORB_SLAM3 ${OpenCV_LIBS}
                                          ${Pangolin_LIBRARIES})
 
-# GOAL Finder
-add_library(goal_finder src/goal_finder.cc)
-target_include_directories(goal_finder PRIVATE include)
 
 # Auto Navigation App
 add_executable(auto_navigation src/apps/auto_navigation.cc src/navigator.cc
@@ -78,7 +79,7 @@ target_link_libraries(auto_navigation PRIVATE ${PCL_LIBRARIES})
 target_link_libraries(auto_navigation PRIVATE ${OpenCV_LIBS} ${Boost_LIBRARIES})
 target_link_libraries(auto_navigation PRIVATE ORB_SLAM3 ${Pangolin_LIBRARIES})
 target_link_libraries(auto_navigation PRIVATE tello_stream path_builder
-                                              slam_utils)
+                                              slam_utils goal_finder)
 target_include_directories(auto_navigation PRIVATE include
                                                    ${ORB_SLAM3_INCLUDES})
 

@@ -66,3 +66,22 @@ Explorer::get_points_to_unknown(const pcl::PointXYZ &start_point)
 
     return path;
 }
+
+std::vector<pcl::PointXYZ>
+Explorer::get_points_to_exit(const pcl::PointXYZ &start_point)
+{
+    if (!got_plane_of_flight)
+    {
+        std::cerr << "Explorer: Expected plane of flight to be set"
+                  << std::endl;
+        return {};
+    }
+
+    PathBuilder builder;
+    auto path = builder.build_path_to_exit(cloud, start_point, exit_point,
+                                           known_points[0], known_points[1],
+                                           known_points[2], RRT_points);
+    best_paths = builder.best_paths;
+
+    return path;
+}
