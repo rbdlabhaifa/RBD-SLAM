@@ -536,7 +536,7 @@ std::vector<double> Find_Goal(std::vector<std::vector<double>> map_points)
 
 } // namespace goal_finder
 
-int main()
+int main_example()
 {
     goal_finder::DataReader reader;
     goal_finder::DataProcessor processor;
