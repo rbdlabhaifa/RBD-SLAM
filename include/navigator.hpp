@@ -25,10 +25,11 @@
 
 #define DEFAULT_MAX_PATH_SIZE 20
 
-class Navigator {
+class Navigator
+{
     std::shared_ptr<SomeDrone> drone;
     std::vector<cv::Point3f> destinations;
-    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue;
+    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>> &frame_queue;
 
     std::unique_ptr<ORB_SLAM3::System> SLAM;
     std::string vocabulary_file_path;
@@ -80,8 +81,8 @@ class Navigator {
      */
     cv::Point3f get_last_location();
 
-    static float get_distance_to_destination(const cv::Point3f& p1,
-                                             const cv::Point3f& p2);
+    static float get_distance_to_destination(const cv::Point3f &p1,
+                                             const cv::Point3f &p2);
 
     /**
      * @brief Runs on a thread constantly to update the drone's pose
@@ -92,29 +93,29 @@ class Navigator {
      * @brief Rotate the drone until it's relocalized
      */
     void rotate_to_relocalize();
-    void rotate_to_destination_angle(const cv::Point3f& location,
-                                     const cv::Point3f& destination);
+    void rotate_to_destination_angle(const cv::Point3f &location,
+                                     const cv::Point3f &destination);
 
     // NOTE: This function is not used at the moment (and pretty deprecated),
     // delete?
     static void get_point_of_interest(
-        const std::vector<Eigen::Matrix<double, 3, 1>>& points,
+        const std::vector<Eigen::Matrix<double, 3, 1>> &points,
         std::promise<pcl::PointXYZ> pof_promise, std::size_t last_point,
-        const cv::Point3f& last_location);
+        const cv::Point3f &last_location);
 
-   public:
+  public:
     std::shared_ptr<Explorer> explorer;
 
-    Navigator(const Navigator&) = delete;
-    Navigator(Navigator&&) = delete;
-    Navigator& operator=(const Navigator&) = delete;
-    Navigator& operator=(Navigator&&) = delete;
+    Navigator(const Navigator &) = delete;
+    Navigator(Navigator &&) = delete;
+    Navigator &operator=(const Navigator &) = delete;
+    Navigator &operator=(Navigator &&) = delete;
     Navigator(std::shared_ptr<SomeDrone>,
-              const std::string& vocabulary_file_path,
-              const std::string& calibration_file_path,
+              const std::string &vocabulary_file_path,
+              const std::string &calibration_file_path,
               std::string map_file_path,
-              boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>&
-                  frame_queue,
+              boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>
+                  &frame_queue,
               bool existing_map, std::filesystem::path data_dir = ".",
               std::vector<cv::Point3f> destinations = {});
     ~Navigator();
@@ -127,11 +128,11 @@ class Navigator {
      */
     void get_features_by_rotating();
 
+    // bool goto_the_unknown(); /* UNUSED */
     bool goto_next_destination();
-    bool goto_the_unknown();
-    std::vector<pcl::PointXYZ> get_path_to_the_unknown(
-        std::size_t path_size = DEFAULT_MAX_PATH_SIZE);
-    void goto_point(const cv::Point3f& p);
+    std::vector<pcl::PointXYZ>
+    get_path_to_the_unknown(std::size_t path_size = DEFAULT_MAX_PATH_SIZE);
+    void goto_point(const cv::Point3f &p);
 
     /**
      * @brief Update the plane of flight by moving the drone in 2 straight lines
@@ -139,4 +140,4 @@ class Navigator {
     void update_plane_of_flight();
 };
 
-#endif  // NAVIGATOR_H_
+#endif // NAVIGATOR_H_
