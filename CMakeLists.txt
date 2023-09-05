@@ -67,6 +67,10 @@ target_include_directories(slam_utils PRIVATE include ${ORB_SLAM3_INCLUDES})
 target_link_libraries(slam_utils PRIVATE ORB_SLAM3 ${OpenCV_LIBS}
                                          ${Pangolin_LIBRARIES})
 
+# GOAL Finder
+add_library(goal_finder src/goal_finder.cc)
+target_include_directories(goal_finder PRIVATE include)
+
 # Auto Navigation App
 add_executable(auto_navigation src/apps/auto_navigation.cc src/navigator.cc
                                src/explorer.cc)
