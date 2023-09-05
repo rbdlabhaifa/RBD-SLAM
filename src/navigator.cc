@@ -569,10 +569,29 @@ void Navigator::start_navigation(bool use_explorer)
 
     const auto slam_points =
         get_aligned_points_from_slam(map_points, R_align, mu_align);
-    if (use_explorer)
-        explorer = std::make_shared<Explorer>(slam_points);
 
+    // save to file and read from it for exit algo
     Auxilary::save_points_to_file(slam_points, data_dir / "aligned_points.xyz");
+
+    // get aligned map points and calculate exit point
+    std::vector<std::vector<double>> formated_map_poits =
+        _map_reader.read_file(data_dir / "aligned_points.xyz");
+    std::vector<double> goal_exit_point =
+        goal_finder::Find_Goal(formated_map_poits);
+
+    /*!
+     * --------------------------------------------------------------------------
+     */
+    /*!                 !TODO - CHECK IF THIS RUNS ONLY ONE TIME!!! */
+    /*!
+     * --------------------------------------------------------------------------
+     */
+    if (use_explorer)
+    {
+        explorer = std::make_shared<Explorer>(slam_points);
+        explorer->exit_point = pcl::PointXYZ(
+            goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
+    }
 
     std::transform(
         destinations.begin(), destinations.end(), destinations.begin(),

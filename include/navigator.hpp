@@ -21,6 +21,7 @@
 #include "Viewer.h"
 #include "drone.hpp"
 #include "explorer.hpp"
+#include "goal_finder.hpp"
 #include "sophus/se3.hpp"
 
 #define DEFAULT_MAX_PATH_SIZE 20
@@ -49,6 +50,9 @@ class Navigator
 
     /// Drone's rotation matrix
     cv::Mat Rwc;
+
+    /// reader for xyz point reading in "start_navigation"
+    goal_finder::DataReader _map_reader;
 
     std::atomic_bool started_navigation = {false};
 
