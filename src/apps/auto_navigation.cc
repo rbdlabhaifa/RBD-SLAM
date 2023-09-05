@@ -64,19 +64,19 @@ int main(int argc, char* argv[]) {
     if (argc < 3) {
         std::cerr << "USAGE: " << argv[0]
                   << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH "
-                     "[--use-webcam] [--fake-drone] [--offline-mode]"
+                     "[--use-webcam] [--use-drone] [--fake-drone] [--offline-mode]"
                   << std::endl;
         return 1;
     }
 
+    const bool use_drone = find_arg(argc, argv, "--use-drone");
     const bool use_webcam = find_arg(argc, argv, "--use-webcam");
     const bool fake_drone = find_arg(argc, argv, "--fake-drone");
     const bool offline_mode = find_arg(argc, argv, "--offline-mode");
 
 
-    std::shared_ptr<SomeDrone> drone =
-        use_webcam ? std::make_shared<SomeDrone>()
-                   : std::make_shared<Drone>(!fake_drone);
+    std::shared_ptr<SomeDrone> drone = std::make_shared<Drone>(!fake_drone);
+    
     drone->activate_drone();
 
     Streamer streamer(use_webcam

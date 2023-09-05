@@ -39,8 +39,7 @@ class SomeDrone {
 /// Sends real commands to a tello drone
 class Drone : public SomeDrone {
    public:
-    explicit Drone(bool send_commands = true)
-        : send_commands(send_commands),
+    explicit Drone(bool send_commands = true) : send_commands(send_commands),
           tello_(std::make_shared<ctello::Tello>()) {}
 
     void send_command(const std::string &cmd,
