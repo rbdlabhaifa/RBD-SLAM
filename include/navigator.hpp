@@ -20,6 +20,7 @@
 #include "System.h"
 #include "Viewer.h"
 #include "drone.hpp"
+#include "eigen_operations.hpp"
 #include "explorer.hpp"
 #include "goal_finder.hpp"
 #include "sophus/se3.hpp"

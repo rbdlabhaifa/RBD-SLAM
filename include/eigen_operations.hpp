@@ -3,80 +3,96 @@
 
 #include <Eigen/Core>
 
-namespace EigenOperations {
+namespace EigenOperations
+{
 
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
+template <typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 1>
+get_indices(const Eigen::Matrix<T, Eigen::Dynamic, 1> &vec,
+            const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> &indices)
+{
+    Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
 
-        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
-            block_mat(i) = vec(indices[i]);
-        }
-
-        return block_mat;
+    for (Eigen::Index i = 0; i < indices.rows(); ++i)
+    {
+        block_mat(i) = vec(indices[i]);
     }
 
-    template <typename T>
-    void remove_row(Eigen::Matrix<T, Eigen::Dynamic, 1>& matrix,
-                    Eigen::Index rowToRemove) {
-        Eigen::Index numRows = matrix.rows() - 1;
-        Eigen::Index numCols = matrix.cols();
+    return block_mat;
+}
 
-        if (rowToRemove < numRows) {
-            matrix.block(rowToRemove, 0, numRows - rowToRemove, numCols) =
-                matrix.block(rowToRemove + 1, 0, numRows - rowToRemove,
-                             numCols);
-        }
+template <typename T>
+void remove_row(Eigen::Matrix<T, Eigen::Dynamic, 1> &matrix,
+                Eigen::Index rowToRemove)
+{
+    Eigen::Index numRows = matrix.rows() - 1;
+    Eigen::Index numCols = matrix.cols();
 
-        matrix.conservativeResize(numRows, numCols);
+    if (rowToRemove < numRows)
+    {
+        matrix.block(rowToRemove, 0, numRows - rowToRemove, numCols) =
+            matrix.block(rowToRemove + 1, 0, numRows - rowToRemove, numCols);
     }
 
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_all_indices_except(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        auto block_vec = vec;
+    matrix.conservativeResize(numRows, numCols);
+}
 
-        for (Eigen::Index i = 0; i < indices.size(); ++i) {
-            remove_row(block_vec, indices[i]);
-        }
+template <typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 1> get_all_indices_except(
+    const Eigen::Matrix<T, Eigen::Dynamic, 1> &vec,
+    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> &indices)
+{
+    auto block_vec = vec;
 
-        return block_vec;
+    for (Eigen::Index i = 0; i < indices.size(); ++i)
+    {
+        remove_row(block_vec, indices[i]);
     }
 
-    template <typename T>
-    std::vector<T> get_indices(
-        const std::vector<T>& vec,
-        const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& indices) {
-        std::vector<T> v_block(indices.size());
+    return block_vec;
+}
 
-        for (Eigen::Index i = 0; i < indices.rows(); ++i) {
-            v_block[i] = vec[indices[i]];
-        }
+template <typename T>
+std::vector<T>
+get_indices(const std::vector<T> &vec,
+            const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> &indices)
+{
+    std::vector<T> v_block(indices.size());
 
-        return v_block;
+    for (Eigen::Index i = 0; i < indices.rows(); ++i)
+    {
+        v_block[i] = vec[indices[i]];
     }
 
-    template <typename T>
-    Eigen::Matrix<T, Eigen::Dynamic, 1> get_indices(
-        const Eigen::Matrix<T, Eigen::Dynamic, 1>& vec,
-        const std::vector<std::size_t>& indices) {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
+    return v_block;
+}
 
-        for (Eigen::Index i = 0; i < indices.size(); ++i) {
-            block_mat(i) = vec(indices[i]);
-        }
+template <typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 1>
+get_indices(const Eigen::Matrix<T, Eigen::Dynamic, 1> &vec,
+            const std::vector<std::size_t> &indices)
+{
+    Eigen::Matrix<T, Eigen::Dynamic, 1> block_mat(indices.size());
 
-        return block_mat;
+    for (Eigen::Index i = 0; i < indices.size(); ++i)
+    {
+        block_mat(i) = vec(indices[i]);
     }
 
-    std::vector<float> sum_rows(const Eigen::VectorXf& mat);
+    return block_mat;
+}
 
-    void sort_matrix_columns(Eigen::MatrixXf& mat);
+std::vector<float> sum_rows(const Eigen::VectorXf &mat);
 
-    Eigen::VectorXf gradient(const Eigen::VectorXf& v);
-}  // namespace EigenOperations
+void sort_matrix_columns(Eigen::MatrixXf &mat);
 
-#endif  // EIGEN_OPERATIONS_H_
+Eigen::VectorXf gradient(const Eigen::VectorXf &v);
+
+Eigen::MatrixXd vec_vec2eigen_mat(std::vector<std::vector<double>> origin_mat);
+std::vector<std::vector<double>> eigen_mat2vec_vec(Eigen::MatrixXd orig_mat);
+std::vector<std::vector<double>>
+vec_eigen3d2vec_vec(std::vector<Eigen::Vector3d> orig_vec);
+
+} // namespace EigenOperations
+
+#endif // EIGEN_OPERATIONS_H_

@@ -503,8 +503,27 @@ DataAnalyzer::find_exit(const std::vector<std::vector<double>> &datapoints,
 /*                                  FIND GOAL */
 /* --------------------------------------------------------------------------
  */
-std::vector<double> Find_Goal(std::vector<std::vector<double>> map_points)
+Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
+                          Eigen::Vector3d starting_pos,
+                          pcl::PointXYZ &known_point1,
+                          pcl::PointXYZ &known_point2,
+                          pcl::PointXYZ &known_point3)
 {
+    // calculate A
+    Eigen::Matrix<double, 2, 3> A;
+    using namespace PCLOperations;
+    {
+        pcl::PointXYZ plane_mean =
+            (known_point1 + known_point2 + known_point3) / 3;
+
+        auto [cp, span_v1_gs, span_v2_gs, d] =
+            Auxilary::get_plane_from_3_points(known_point1 - plane_mean,
+                                              known_point2 - plane_mean,
+                                              known_point3 - plane_mean);
+        A << span_v1_gs.x, span_v1_gs.y, span_v1_gs.z;
+        A << span_v2_gs.x, span_v2_gs.y, span_v2_gs.z;
+    };
+
     DataProcessor processor;
     DataAnalyzer analyzer;
 
@@ -515,15 +534,34 @@ std::vector<double> Find_Goal(std::vector<std::vector<double>> map_points)
     std::vector<std::vector<double>> cleaned_data =
         processor.clean_data(map_points, 3);
 
-    std::vector<double> middle_point = analyzer.find_middle_point(map_points);
-    std::vector<size_t> best_dimensions =
-        analyzer.select_best_dimensions(map_points);
+    Eigen::MatrixXd eigen_cleaned_data(cleaned_data.size(), 3);
 
+    for (int i = 0; i < cleaned_data.size(); ++i)
+    {
+        for (int j = 0; j < 3; ++j)
+        {
+            eigen_cleaned_data(i, j) = cleaned_data[i][j];
+        }
+    }
+
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> projected_mat =
+        eigen_cleaned_data * A.transpose();
+
+    // std::vector<double> middle_point =
+    // analyzer.find_middle_point(map_points); std::vector<size_t>
+    // best_dimensions =
+    //     analyzer.select_best_dimensions(map_points);
+
+    // std::vector<std::vector<double>> projected_data =
+    //     analyzer.project_to_dimensions(map_points, best_dimensions);
+
+    // std::vector<double> drone_position =
+    //     analyzer.find_middle_point(projected_data);
+
+    std::vector<double> drone_position = {starting_pos.x(), starting_pos.y(),
+                                          starting_pos.z()};
     std::vector<std::vector<double>> projected_data =
-        analyzer.project_to_dimensions(map_points, best_dimensions);
-
-    std::vector<double> drone_position =
-        analyzer.find_middle_point(projected_data);
+        EigenOperations::eigen_mat2vec_vec(projected_mat);
 
     std::vector<double> avg_distances =
         analyzer.calculate_average_distances(projected_data, drone_position);
@@ -531,7 +569,10 @@ std::vector<double> Find_Goal(std::vector<std::vector<double>> map_points)
     std::vector<size_t> nan_indices;
     std::pair<std::vector<double>, std::vector<double>> exit_result =
         analyzer.find_exit(projected_data, drone_position, avg_distances);
-    return exit_result.first;
+    Eigen::Matrix<double, 1, 2> ret_mat;
+    ret_mat << exit_result.first[0], exit_result.first[1];
+    Eigen::Vector3d ret_vec = ret_mat * A;
+    return ret_vec;
 }
 
 } // namespace goal_finder

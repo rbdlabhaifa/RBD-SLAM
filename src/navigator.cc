@@ -361,8 +361,29 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
             mu_align);
         explorer->set_cloud_points(aligned_points);
 
+        // TODO:conteniue
         pose_updated = false;
         const cv::Point3f last_location = get_last_location();
+
+        // get exit point
+        std::vector<std::vector<double>> transformed_vec =
+            EigenOperations::vec_eigen3d2vec_vec(aligned_points);
+
+        Eigen::Vector3d vec_last_loc{last_location.x, last_location.y,
+                                     last_location.z};
+
+        // set known points
+        auto [k_p1, k_p2, k_p3] = explorer->get_plane_of_flight();
+
+        Eigen::Vector3d goal_exit_point = goal_finder::Find_Goal(
+            transformed_vec, vec_last_loc, k_p1, k_p2, k_p3);
+
+        explorer->exit_point = pcl::PointXYZ(
+            goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
+        // draw the exit point in pangolin
+        SLAM->get_map_drawer()->Exit_point = Eigen::Matrix<float, 3, 1>(
+            goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
+        SLAM->get_map_drawer()->set_draw_exit(true);
 
         // std::promise<pcl::PointXYZ> pof_promise;
         // auto pof_future = pof_promise.get_future();
@@ -422,6 +443,7 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
     // Specify the file names to copy
     const std::string treeFileName = "tree.csv";
     const std::string startFileName = "start.xyz";
+    const std::string exitFileName = "exit.xyz";
     const std::string endFileName = "end.xyz";
     const std::string pathsFileName = "paths.csv";
 
@@ -460,17 +482,20 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         "cp \"" + treeFileName + "\" \"" + std::string(data_dir) + "/\"";
     std::string copyStartCommand =
         "cp \"" + startFileName + "\" \"" + std::string(data_dir) + "/\"";
+    std::string copyExitCommand =
+        "cp \"" + exitFileName + "\" \"" + std::string(data_dir) + "/\"";
     std::string copyEndCommand =
         "cp \"" + endFileName + "\" \"" + std::string(data_dir) + "/\"";
     std::string copyPathsCommand =
         "cp \"" + pathsFileName + "\" \"" + std::string(data_dir) + "/\"";
     int treeCopyResult = system(copyTreeCommand.c_str());
     int startCopyResult = system(copyStartCommand.c_str());
+    int exitCopyResult = system(copyExitCommand.c_str());
     int endCopyResult = system(copyEndCommand.c_str());
     int pathsCopyResult = system(copyPathsCommand.c_str());
 
-    if (treeCopyResult == 0 && startCopyResult == 0 && endCopyResult == 0 &&
-        pathsCopyResult == 0)
+    if (treeCopyResult || startCopyResult || endCopyResult || pathsCopyResult ||
+        exitCopyResult)
     {
         std::cout << "Files copied successfully!" << std::endl;
     }
@@ -573,25 +598,8 @@ void Navigator::start_navigation(bool use_explorer)
     // save to file and read from it for exit algo
     Auxilary::save_points_to_file(slam_points, data_dir / "aligned_points.xyz");
 
-    // get aligned map points and calculate exit point
-    std::vector<std::vector<double>> formated_map_poits =
-        _map_reader.read_file(data_dir / "aligned_points.xyz");
-    std::vector<double> goal_exit_point =
-        goal_finder::Find_Goal(formated_map_poits);
-
-    /*!
-     * --------------------------------------------------------------------------
-     */
-    /*!                 !TODO - CHECK IF THIS RUNS ONLY ONE TIME!!! */
-    /*!
-     * --------------------------------------------------------------------------
-     */
     if (use_explorer)
-    {
         explorer = std::make_shared<Explorer>(slam_points);
-        explorer->exit_point = pcl::PointXYZ(
-            goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
-    }
 
     std::transform(
         destinations.begin(), destinations.end(), destinations.begin(),

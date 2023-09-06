@@ -42,10 +42,6 @@ target_include_directories(tello_stream PRIVATE include)
 target_link_libraries(tello_stream PRIVATE ${Boost_LIBRARIES} ctello
                                            ${OpenCV_LIBS})
 
-# GOAL Finder
-add_library(goal_finder src/goal_finder.cc)
-target_include_directories(goal_finder PRIVATE include)
-
 # PCL Operations
 add_library(pcl_operations src/pcl_operations.cc)
 target_include_directories(pcl_operations PRIVATE include)
@@ -56,13 +52,18 @@ add_library(eigen_operations src/eigen_operations.cc)
 target_include_directories(eigen_operations PRIVATE include)
 target_link_libraries(eigen_operations PRIVATE Eigen3::Eigen)
 
+# GOAL Finder
+add_library(goal_finder src/goal_finder.cc src/auxilary.cc)
+target_include_directories(goal_finder PRIVATE include)
+target_link_libraries(goal_finder PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} pcl_operations eigen_operations Eigen3::Eigen)
+
 # Path Builder
 add_library(path_builder src/path_builder.cc src/auxilary.cc)
 target_include_directories(path_builder PRIVATE include)
 target_include_directories(path_builder PRIVATE ${LEMON_INCLUDE_DIR})
 target_link_libraries(
-  path_builder PRIVATE ${LEMON_LIBRARIES} ${PCL_LIBRARIES} GEOS::geos
-                       Eigen3::Eigen pcl_operations eigen_operations)
+path_builder PRIVATE ${LEMON_LIBRARIES} ${PCL_LIBRARIES} GEOS::geos
+Eigen3::Eigen pcl_operations eigen_operations)
 target_link_libraries(path_builder PUBLIC ${OpenCV_LIBS})
 
 # SLAM Utils

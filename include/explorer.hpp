@@ -40,6 +40,11 @@ class Explorer
                              const pcl::PointXYZ &known_point2,
                              const pcl::PointXYZ &known_point3);
 
+    std::array<pcl::PointXYZ, 3> get_plane_of_flight()
+    {
+        return this->known_points;
+    }
+
     bool is_set_plane_of_flight() const { return got_plane_of_flight; }
 
     // NOTE: The scale_factor is not used at the moment
