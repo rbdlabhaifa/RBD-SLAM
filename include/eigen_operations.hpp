@@ -90,8 +90,12 @@ Eigen::VectorXf gradient(const Eigen::VectorXf &v);
 
 Eigen::MatrixXd vec_vec2eigen_mat(std::vector<std::vector<double>> origin_mat);
 std::vector<std::vector<double>> eigen_mat2vec_vec(Eigen::MatrixXd orig_mat);
+
 std::vector<std::vector<double>>
 vec_eigen3d2vec_vec(std::vector<Eigen::Vector3d> orig_vec);
+
+std::vector<std::vector<double>>
+vec_eigen_mat2vec_vec(std::vector<Eigen::Matrix<double, 3, 1>> orig_vec);
 
 } // namespace EigenOperations
 

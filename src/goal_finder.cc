@@ -121,10 +121,9 @@ std::vector<std::vector<double>> DataProcessor::calculate_zscores(
 
 std::vector<std::vector<double>>
 DataProcessor::clean_data(const std::vector<std::vector<double>> &data_points,
+                          const std::vector<std::vector<double>> &zscores,
                           double zscore_threshold)
 {
-    std::vector<std::vector<double>> zscores = calculate_zscores(data_points);
-
     std::vector<bool> is_outlier = find_outliers(zscores, zscore_threshold);
 
     std::vector<std::vector<double>> filtered_points;
@@ -511,17 +510,17 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
 {
     // calculate A
     Eigen::Matrix<double, 2, 3> A;
+    pcl::PointXYZ plane_mean;
     using namespace PCLOperations;
     {
-        pcl::PointXYZ plane_mean =
-            (known_point1 + known_point2 + known_point3) / 3;
+        plane_mean = (known_point1 + known_point2 + known_point3) / 3;
 
         auto [cp, span_v1_gs, span_v2_gs, d] =
             Auxilary::get_plane_from_3_points(known_point1 - plane_mean,
                                               known_point2 - plane_mean,
                                               known_point3 - plane_mean);
-        A << span_v1_gs.x, span_v1_gs.y, span_v1_gs.z;
-        A << span_v2_gs.x, span_v2_gs.y, span_v2_gs.z;
+        A << span_v1_gs.x, span_v1_gs.y, span_v1_gs.z, span_v2_gs.x,
+            span_v2_gs.y, span_v2_gs.z;
     };
 
     DataProcessor processor;
@@ -531,8 +530,13 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
     std::vector<std::vector<double>> zscores =
         processor.calculate_zscores(map_points);
 
+    // transpose zscores
+    Eigen::MatrixXd transposer =
+        EigenOperations::vec_vec2eigen_mat(zscores).transpose();
+    zscores = EigenOperations::eigen_mat2vec_vec(transposer);
+
     std::vector<std::vector<double>> cleaned_data =
-        processor.clean_data(map_points, 3);
+        processor.clean_data(map_points, zscores, 3);
 
     Eigen::MatrixXd eigen_cleaned_data(cleaned_data.size(), 3);
 
@@ -544,22 +548,30 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
         }
     }
 
+    std::cout << "A trans: " << A.transpose() << std::endl;
+
+    Eigen::Vector3d plane_mean_mat{plane_mean.x, plane_mean.y, plane_mean.z};
+    eigen_cleaned_data.rowwise() -= plane_mean_mat.transpose();
+
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> projected_mat =
         eigen_cleaned_data * A.transpose();
 
-    // std::vector<double> middle_point =
-    // analyzer.find_middle_point(map_points); std::vector<size_t>
-    // best_dimensions =
-    //     analyzer.select_best_dimensions(map_points);
+    Eigen::Matrix<double, 3, 1> start_pos_mat{
+        starting_pos.x(), starting_pos.y(), starting_pos.z()};
+    std::cout << "start_pose_mat before  " << start_pos_mat.transpose()
+              << std::endl;
 
-    // std::vector<std::vector<double>> projected_data =
-    //     analyzer.project_to_dimensions(map_points, best_dimensions);
+    start_pos_mat -= plane_mean_mat;
+    std::cout << "plane_mean  " << plane_mean_mat.transpose() << std::endl;
+    std::cout << "start_pose_mat after  " << start_pos_mat.transpose()
+              << std::endl;
 
-    // std::vector<double> drone_position =
-    //     analyzer.find_middle_point(projected_data);
+    auto proj_pose_mat = start_pos_mat.transpose() * A.transpose();
 
-    std::vector<double> drone_position = {starting_pos.x(), starting_pos.y(),
-                                          starting_pos.z()};
+    std::cout << "projected pose mat: " << proj_pose_mat << std::endl;
+
+    std::vector<double> drone_position{proj_pose_mat(0), proj_pose_mat(1)};
+
     std::vector<std::vector<double>> projected_data =
         EigenOperations::eigen_mat2vec_vec(projected_mat);
 
@@ -571,7 +583,9 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
         analyzer.find_exit(projected_data, drone_position, avg_distances);
     Eigen::Matrix<double, 1, 2> ret_mat;
     ret_mat << exit_result.first[0], exit_result.first[1];
+
     Eigen::Vector3d ret_vec = ret_mat * A;
+    ret_vec += plane_mean_mat;
     return ret_vec;
 }
 
@@ -597,7 +611,7 @@ int main_example()
         std::vector<std::vector<double>> zscores =
             processor.calculate_zscores(data_points);
         std::vector<std::vector<double>> cleaned_data =
-            processor.clean_data(data_points, 3);
+            processor.clean_data(data_points, zscores, 3);
         std::vector<double> middle_point =
             analyzer.find_middle_point(data_points);
 

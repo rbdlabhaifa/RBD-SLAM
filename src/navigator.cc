@@ -353,6 +353,7 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         return {};
 
     std::vector<pcl::PointXYZ> path_to_the_unknown;
+    Eigen::Vector3d goal_exit_point;
 
     while (path_to_the_unknown.empty())
     {
@@ -364,25 +365,35 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         // TODO:conteniue
         pose_updated = false;
         const cv::Point3f last_location = get_last_location();
+        std::cout << "last_location: " << last_location.x << " "
+                  << last_location.y << " " << last_location.z << std::endl;
 
+        std::cout << "place 1!" << std::endl;
         // get exit point
         std::vector<std::vector<double>> transformed_vec =
-            EigenOperations::vec_eigen3d2vec_vec(aligned_points);
+            EigenOperations::vec_eigen_mat2vec_vec(aligned_points);
+
+        std::cout << "place 2!" << std::endl;
 
         Eigen::Vector3d vec_last_loc{last_location.x, last_location.y,
                                      last_location.z};
 
+        std::cout << "place 3!" << std::endl;
+
         // set known points
         auto [k_p1, k_p2, k_p3] = explorer->get_plane_of_flight();
 
-        Eigen::Vector3d goal_exit_point = goal_finder::Find_Goal(
-            transformed_vec, vec_last_loc, k_p1, k_p2, k_p3);
+        std::cout << "place 4!" << std::endl;
 
+        goal_exit_point = goal_finder::Find_Goal(transformed_vec, vec_last_loc,
+                                                 k_p1, k_p2, k_p3);
+
+        std::cout << "place 5!" << std::endl;
         explorer->exit_point = pcl::PointXYZ(
             goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
         // draw the exit point in pangolin
         SLAM->get_map_drawer()->Exit_point = Eigen::Matrix<float, 3, 1>(
-            goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
+            goal_exit_point.x(), goal_exit_point.y(), goal_exit_point.z());
         SLAM->get_map_drawer()->set_draw_exit(true);
 
         // std::promise<pcl::PointXYZ> pof_promise;
@@ -425,11 +436,28 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
     Auxilary::save_points_to_file(
         path_to_the_unknown,
         data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
+
     Auxilary::save_points_to_file(
         get_aligned_points_from_slam(
             SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
             mu_align),
         data_dir / ("map_for_path" + std::to_string(paths_created) + ".xyz"));
+
+    Auxilary::save_points_to_file(
+        path_to_the_unknown,
+        data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
+
+    std::vector<pcl::PointXYZ> save_exit;
+    pcl::PointXYZ s_p{
+        goal_exit_point.x(),
+        goal_exit_point.y(),
+        goal_exit_point.z(),
+    };
+    save_exit.push_back(s_p);
+
+    Auxilary::save_points_to_file(
+        save_exit,
+        data_dir / ("exit" + std::to_string(++paths_created) + ".xyz"));
 
     std::cout << "GOT PATH" << std::endl;
 
@@ -443,7 +471,6 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
     // Specify the file names to copy
     const std::string treeFileName = "tree.csv";
     const std::string startFileName = "start.xyz";
-    const std::string exitFileName = "exit.xyz";
     const std::string endFileName = "end.xyz";
     const std::string pathsFileName = "paths.csv";
 
@@ -462,18 +489,6 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         parentDir = parentDir.substr(0, pos);
     }
 
-    system("pwd");
-
-    // // Check if the files exist in the parent directory
-    // std::ifstream treeFile(treeFilePath);
-    // std::ifstream startFile(startFilePath);
-    // if (!treeFile || !startFile) {
-    //     std::cout << "One or both files do not exist in the parent
-    //     directory!" << std::endl;
-    // }
-    // treeFile.close();
-    // startFile.close();
-
     std::cout << "data_dir is:" << data_dir.string() << "------------"
               << std::endl;
 
@@ -482,20 +497,16 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         "cp \"" + treeFileName + "\" \"" + std::string(data_dir) + "/\"";
     std::string copyStartCommand =
         "cp \"" + startFileName + "\" \"" + std::string(data_dir) + "/\"";
-    std::string copyExitCommand =
-        "cp \"" + exitFileName + "\" \"" + std::string(data_dir) + "/\"";
     std::string copyEndCommand =
         "cp \"" + endFileName + "\" \"" + std::string(data_dir) + "/\"";
     std::string copyPathsCommand =
         "cp \"" + pathsFileName + "\" \"" + std::string(data_dir) + "/\"";
     int treeCopyResult = system(copyTreeCommand.c_str());
     int startCopyResult = system(copyStartCommand.c_str());
-    int exitCopyResult = system(copyExitCommand.c_str());
     int endCopyResult = system(copyEndCommand.c_str());
     int pathsCopyResult = system(copyPathsCommand.c_str());
 
-    if (treeCopyResult || startCopyResult || endCopyResult || pathsCopyResult ||
-        exitCopyResult)
+    if (treeCopyResult || startCopyResult || endCopyResult || pathsCopyResult)
     {
         std::cout << "Files copied successfully!" << std::endl;
     }
@@ -521,12 +532,21 @@ void Navigator::get_features_by_rotating()
     {
         ++current_rotate;
 
-        drone->send_command(
-            "rc 0 0 " + std::to_string(multiplier * 18) + " -15", false);
+        if ((times_rotate + 1 - current_rotate) % 5 == 0)
+            std::cout << "scan movments left: "
+                      << (times_rotate + 1 - current_rotate) << std::endl;
+
+        drone->send_command("rc 0 0 " + std::to_string(multiplier * 18) + " 15",
+                            false);
+
+        // drone->send_command("rc 0 " + std::to_string(-10) + " " +
+        //                         std::to_string(multiplier * 18) + " 15",
+        //                     false);
+
         multiplier *= -1;
         std::this_thread::sleep_for(5s);
         drone->send_command("rc 0 0 0 0", false);
-        std::this_thread::sleep_for(2s);
+        std::this_thread::sleep_for(1s);
         pose_updated = false;
         std::this_thread::sleep_for(1s);
 

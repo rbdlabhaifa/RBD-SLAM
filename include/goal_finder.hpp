@@ -40,6 +40,7 @@ class DataProcessor
     calculate_zscores(const std::vector<std::vector<double>> &data_points);
     std::vector<std::vector<double>>
     clean_data(const std::vector<std::vector<double>> &data_points,
+               const std::vector<std::vector<double>> &zscores,
                double zscore_threshold);
 
   private:

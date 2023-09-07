@@ -96,14 +96,28 @@ vec_eigen3d2vec_vec(std::vector<Eigen::Vector3d> orig_vec)
 {
     int rows = orig_vec.size();
     int cols = 3;
-    std::vector<std::vector<double>> ret_vector(rows,
-                                                std::vector<double>(cols));
+    std::vector<std::vector<double>> ret_vector;
 
     for (int i = 0; i < rows; ++i)
     {
         ret_vector[i] = std::vector<double>(3) = {
             orig_vec[i].x(), orig_vec[i].y(), orig_vec[i].z()};
     }
+    return ret_vector;
+}
+
+std::vector<std::vector<double>>
+vec_eigen_mat2vec_vec(std::vector<Eigen::Matrix<double, 3, 1>> orig_vec)
+{
+    std::vector<std::vector<double>> ret_vector;
+    int rows = orig_vec.size();
+
+    for (int i = 0; i < rows; ++i)
+    {
+        Eigen::Matrix<double, 3, 1> line = orig_vec[i];
+        ret_vector.push_back(std::vector<double>{line(0), line(1), line(2)});
+    }
+    return ret_vector;
 }
 
 } // namespace EigenOperations

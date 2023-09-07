@@ -55,7 +55,8 @@ target_link_libraries(eigen_operations PRIVATE Eigen3::Eigen)
 # GOAL Finder
 add_library(goal_finder src/goal_finder.cc src/auxilary.cc)
 target_include_directories(goal_finder PRIVATE include)
-target_link_libraries(goal_finder PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} pcl_operations eigen_operations Eigen3::Eigen)
+target_link_libraries(goal_finder PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS}
+                      pcl_operations eigen_operations Eigen3::Eigen GEOS::geos)
 
 # Path Builder
 add_library(path_builder src/path_builder.cc src/auxilary.cc)
@@ -91,6 +92,12 @@ target_link_libraries(
                       ${Boost_LIBRARIES} tello_stream slam_utils)
 target_include_directories(map_builder PRIVATE include ${ORB_SLAM3_INCLUDES})
 
+# SHOW RRT
 add_executable(show_rrt src/utils/show_rrt.cc src/explorer.cc)
 target_link_libraries(show_rrt PRIVATE ${PCL_LIBRARIES} path_builder)
 target_include_directories(show_rrt PRIVATE include)
+
+# test_runner
+add_executable(test_runner src/utils/test_runner.cc)
+target_include_directories(test_runner PRIVATE include)
+target_link_libraries(test_runner PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} goal_finder pcl_operations eigen_operations Eigen3::Eigen)
