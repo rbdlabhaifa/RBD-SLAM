@@ -134,7 +134,9 @@ get_plane_from_3_points(const pcl::PointXYZ &p1, const pcl::PointXYZ &p2,
     auto span_v2_gs = span_v2 - (span_v2 * span_v1_gs) * span_v1_gs;
     span_v2_gs = span_v2_gs / std::sqrt(span_v2_gs * span_v2_gs);
 
-    return {span_v1_gs, span_v1_gs, span_v2_gs, 3};
+    auto cp = cross_product(span_v1_gs, span_v2_gs);
+    auto d = cp * p3;
+    return {cp, span_v1_gs, span_v2_gs, d};
 }
 
 void save_clusters(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &cloud,

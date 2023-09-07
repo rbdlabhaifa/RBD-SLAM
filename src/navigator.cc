@@ -367,28 +367,18 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         const cv::Point3f last_location = get_last_location();
         std::cout << "last_location: " << last_location.x << " "
                   << last_location.y << " " << last_location.z << std::endl;
-
-        std::cout << "place 1!" << std::endl;
         // get exit point
         std::vector<std::vector<double>> transformed_vec =
             EigenOperations::vec_eigen_mat2vec_vec(aligned_points);
 
-        std::cout << "place 2!" << std::endl;
-
         Eigen::Vector3d vec_last_loc{last_location.x, last_location.y,
                                      last_location.z};
-
-        std::cout << "place 3!" << std::endl;
 
         // set known points
         auto [k_p1, k_p2, k_p3] = explorer->get_plane_of_flight();
 
-        std::cout << "place 4!" << std::endl;
-
         goal_exit_point = goal_finder::Find_Goal(transformed_vec, vec_last_loc,
                                                  k_p1, k_p2, k_p3);
-
-        std::cout << "place 5!" << std::endl;
         explorer->exit_point = pcl::PointXYZ(
             goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
         // draw the exit point in pangolin
