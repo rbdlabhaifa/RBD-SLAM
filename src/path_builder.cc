@@ -53,6 +53,53 @@ std::size_t PathBuilder::get_last_change(
     return last_change - 1;
 }
 
+
+std::vector<pcl::PointXYZ> PathBuilder::get_path_between_two_nodes(
+    const lemon::ListDigraph &graph,
+    const lemon::ListDigraph::Node &start_node,
+    const lemon::ListDigraph::Node &end_node)
+{
+    std::vector<std::vector<pcl::PointXYZ>> paths;
+
+    std::size_t amount = 0;
+
+    lemon::Dfs<lemon::ListDigraph> dfs(graph);
+    dfs.init();
+    dfs.addSource(start_node);
+    dfs.start();
+
+    std::size_t leaves = 0;
+
+    for (lemon::ListDigraph::NodeIt it(graph); it != lemon::INVALID; ++it)
+    {
+        if (lemon::countOutArcs(graph, it) != 0)
+        {
+            continue;
+        }
+
+        ++leaves;
+
+        std::vector<pcl::PointXYZ> current_path;
+        current_path.insert(current_path.begin(), node_map[it]);
+
+        auto prev = dfs.predNode(it);
+
+        while (prev != lemon::INVALID)
+        {
+            current_path.insert(current_path.begin(), node_map[prev]);
+            prev = dfs.predNode(prev);
+        }
+
+        if(current_path.back() == end_node){
+            return current_path;
+        }
+    }
+
+    std::cout << " Error: Goal finding has a bug" << std::endl;
+    exit(-1);
+}
+
+
 std::vector<std::vector<pcl::PointXYZ>> PathBuilder::get_all_paths_to_leaves(
     const lemon::ListDigraph &graph,
     const lemon::ListDigraph::NodeMap<pcl::PointXYZ> &node_map,
