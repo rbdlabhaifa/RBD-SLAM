@@ -588,6 +588,7 @@ void PathBuilder::get_navigation_points(
                             Center.at<float>(0, 2)};
 
     bool stop_rrt = False;
+    lemon::ListDigraph::Node goal_node;
     for (int i = 0; i < rrt_graph_max_size; ++i)
     {
         if (stop_rrt){
@@ -629,6 +630,7 @@ void PathBuilder::get_navigation_points(
                         ++rrt_size;
                         if(norm(point_new - goal_point) <= threshold) {
                             stop_rrt = True;
+                            goal_node = new_node;
                         }
                         break;
                     }
