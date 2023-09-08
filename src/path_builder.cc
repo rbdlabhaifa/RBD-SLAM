@@ -514,7 +514,9 @@ void PathBuilder::get_navigation_points(
     const pcl::PointXYZ &known_point3,
     std::vector<pcl::PointXYZ> &path_to_the_unknown,
     std::vector<pcl::PointXYZ> &RRT_points,
-    const std::vector<std::unique_ptr<geos::geom::Geometry>> &polygons)
+    const std::vector<std::unique_ptr<geos::geom::Geometry>> &polygons,
+    const pcl::PointXYZ &goal_point,
+    const float threshold)
 {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
@@ -584,8 +586,13 @@ void PathBuilder::get_navigation_points(
     int rrt_size = 0;
     std::vector<float> Cntr{Center.at<float>(0, 0), Center.at<float>(0, 1),
                             Center.at<float>(0, 2)};
+
+    bool stop_rrt = False;
     for (int i = 0; i < rrt_graph_max_size; ++i)
     {
+        if (stop_rrt){
+            break;
+        }
         float R = ((i / 300) + 0.5) * 1.5;
         float r = (i / 300) * 1.5;
         pcl::PointXYZ point_rand =
@@ -620,6 +627,9 @@ void PathBuilder::get_navigation_points(
                         node_to_point[new_node] = point_new;
                         RRT_graph.addArc(it, new_node);
                         ++rrt_size;
+                        if(norm(point_new - goal_point) <= threshold) {
+                            stop_rrt = True;
+                        }
                         break;
                     }
                 }
