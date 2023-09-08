@@ -24,6 +24,15 @@ class PathBuilder
 
     bool debug = true;
 
+
+    /**
+     * @brief Run DFS to find path between two given nodes
+     */
+    static std::vector<pcl:PointXYZ> get_path_between_two_nodes(
+        const lemon::ListDigraph &graph,
+        const lemon::ListDigraph::Node &start_node,
+        const lemon::ListDigraph::Node &end_node);
+    
     /**
      * @brief Run DFS to find all paths to leaves in a graph
      */
