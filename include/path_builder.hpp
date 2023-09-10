@@ -24,15 +24,15 @@ class PathBuilder
 
     bool debug = true;
 
-
     /**
      * @brief Run DFS to find path between two given nodes
      */
-    static std::vector<pcl:PointXYZ> get_path_between_two_nodes(
+    static std::vector<pcl::PointXYZ> get_path_between_two_nodes(
         const lemon::ListDigraph &graph,
+        const lemon::ListDigraph::NodeMap<pcl::PointXYZ> &node_map,
         const lemon::ListDigraph::Node &start_node,
         const lemon::ListDigraph::Node &end_node);
-    
+
     /**
      * @brief Run DFS to find all paths to leaves in a graph
      */
@@ -97,7 +97,8 @@ class PathBuilder
         const pcl::PointXYZ &known_point3,
         std::vector<pcl::PointXYZ> &path_to_the_unknown,
         std::vector<pcl::PointXYZ> &RRT_points,
-        const std::vector<std::unique_ptr<geos::geom::Geometry>> &polygons);
+        const std::vector<std::unique_ptr<geos::geom::Geometry>> &polygons,
+        const pcl::PointXYZ &goal_point, const float threshold);
 
     /**
      * @brief Find the best path in the RRT graph
@@ -116,33 +117,6 @@ class PathBuilder
         const pcl::PointXYZ &start_point, const pcl::PointXYZ &exit_point,
         const pcl::PointXYZ &known_point1, const pcl::PointXYZ &known_point2,
         const pcl::PointXYZ &known_point3,
-        std::vector<pcl::PointXYZ> &RRT_graph);
-
-    /**
-     * @brief Get path to the unknown
-     * @param cloud - entire model
-     * @param start_point - start the RRT from this point
-     * @param known_point[1-3] - points for plane calculation
-     */
-    std::vector<pcl::PointXYZ> operator()(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-        const pcl::PointXYZ &start_point, const pcl::PointXYZ &known_point1,
-        const pcl::PointXYZ &known_point2, const pcl::PointXYZ &known_point3,
-        std::vector<pcl::PointXYZ> &RRT_graph);
-
-    void operator()(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-                    const pcl::PointXYZ &start_point,
-                    const pcl::PointXYZ &known_point1,
-                    const pcl::PointXYZ &known_point2,
-                    const pcl::PointXYZ &known_point3,
-                    std::vector<pcl::PointXYZ> &path_to_the_unknown,
-                    std::vector<pcl::PointXYZ> &RRT_graph);
-
-    void operator()(
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-        const pcl::PointXYZ &start_point, const pcl::PointXYZ &known_point1,
-        const pcl::PointXYZ &known_point2, const pcl::PointXYZ &known_point3,
-        const std::filesystem::path &location_file_path_to_the_unknown,
         std::vector<pcl::PointXYZ> &RRT_graph);
 };
 

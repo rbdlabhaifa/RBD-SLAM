@@ -53,52 +53,39 @@ std::size_t PathBuilder::get_last_change(
     return last_change - 1;
 }
 
-
 std::vector<pcl::PointXYZ> PathBuilder::get_path_between_two_nodes(
     const lemon::ListDigraph &graph,
+    const lemon::ListDigraph::NodeMap<pcl::PointXYZ> &node_map,
     const lemon::ListDigraph::Node &start_node,
     const lemon::ListDigraph::Node &end_node)
 {
-    std::vector<std::vector<pcl::PointXYZ>> paths;
+    std::vector<pcl::PointXYZ> path; // Initialize an empty path vector.
 
-    std::size_t amount = 0;
+    // Traverse the path from the end node to the root.
+    lemon::ListDigraph::Node current_node = end_node;
 
-    lemon::Dfs<lemon::ListDigraph> dfs(graph);
-    dfs.init();
-    dfs.addSource(start_node);
-    dfs.start();
-
-    std::size_t leaves = 0;
-
-    for (lemon::ListDigraph::NodeIt it(graph); it != lemon::INVALID; ++it)
+    while (current_node != start_node)
     {
-        if (lemon::countOutArcs(graph, it) != 0)
+        // Add the current node's point to the path.
+        path.push_back(node_map[current_node]);
+
+        // Find the parent node (predecessor) of the current node.
+        for (lemon::ListDigraph::InArcIt it(graph, current_node);
+             it != lemon::INVALID; ++it)
         {
-            continue;
-        }
-
-        ++leaves;
-
-        std::vector<pcl::PointXYZ> current_path;
-        current_path.insert(current_path.begin(), node_map[it]);
-
-        auto prev = dfs.predNode(it);
-
-        while (prev != lemon::INVALID)
-        {
-            current_path.insert(current_path.begin(), node_map[prev]);
-            prev = dfs.predNode(prev);
-        }
-
-        if(current_path.back() == end_node){
-            return current_path;
+            current_node = graph.source(it);
+            break; // We assume there's only one parent node.
         }
     }
 
-    std::cout << " Error: Goal finding has a bug" << std::endl;
-    exit(-1);
-}
+    // Add the start node's point (the root) to the path.
+    path.push_back(node_map[start_node]);
 
+    // Reverse the order of points to get the path from root to end.
+    std::reverse(path.begin(), path.end());
+
+    return path;
+}
 
 std::vector<std::vector<pcl::PointXYZ>> PathBuilder::get_all_paths_to_leaves(
     const lemon::ListDigraph &graph,
@@ -562,8 +549,7 @@ void PathBuilder::get_navigation_points(
     std::vector<pcl::PointXYZ> &path_to_the_unknown,
     std::vector<pcl::PointXYZ> &RRT_points,
     const std::vector<std::unique_ptr<geos::geom::Geometry>> &polygons,
-    const pcl::PointXYZ &goal_point,
-    const float threshold)
+    const pcl::PointXYZ &goal_point, const float threshold)
 {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
@@ -634,11 +620,12 @@ void PathBuilder::get_navigation_points(
     std::vector<float> Cntr{Center.at<float>(0, 0), Center.at<float>(0, 1),
                             Center.at<float>(0, 2)};
 
-    bool stop_rrt = False;
+    bool stop_rrt = false;
     lemon::ListDigraph::Node goal_node;
     for (int i = 0; i < rrt_graph_max_size; ++i)
     {
-        if (stop_rrt){
+        if (stop_rrt)
+        {
             break;
         }
         float R = ((i / 300) + 0.5) * 1.5;
@@ -675,8 +662,9 @@ void PathBuilder::get_navigation_points(
                         node_to_point[new_node] = point_new;
                         RRT_graph.addArc(it, new_node);
                         ++rrt_size;
-                        if(norm(point_new - goal_point) <= threshold) {
-                            stop_rrt = True;
+                        if (norm(point_new - goal_point) <= threshold)
+                        {
+                            stop_rrt = true;
                             goal_node = new_node;
                         }
                         break;
@@ -735,9 +723,10 @@ std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
         path_to_exit.clear();
         RRT_graph.clear();
 
+        // TODO: change 5.0 - temp
         get_navigation_points(cloud, start_point, known_point1, known_point2,
                               known_point3, path_to_exit, RRT_graph,
-                              convexhulls);
+                              convexhulls, exit_point, 5.0);
 
         if (tries % 10 == 0)
         {
@@ -755,70 +744,4 @@ std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
     }
 
     return path_to_exit;
-}
-
-std::vector<pcl::PointXYZ> PathBuilder::operator()(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-    const pcl::PointXYZ &start_point, const pcl::PointXYZ &known_point1,
-    const pcl::PointXYZ &known_point2, const pcl::PointXYZ &known_point3,
-    std::vector<pcl::PointXYZ> &RRT_graph)
-{
-    std::vector<pcl::PointXYZ> path_to_the_unknown;
-
-    auto cluster_indices = get_clusters(cloud);
-    auto convexhulls = get_convexhulls(cloud, cluster_indices);
-
-    std::size_t tries = 30;
-    while (path_to_the_unknown.empty() && tries-- > 0)
-    {
-        std::cout << "NOT VALID" << std::endl;
-
-        path_to_the_unknown.clear();
-        RRT_graph.clear();
-
-        get_navigation_points(cloud, start_point, known_point1, known_point2,
-                              known_point3, path_to_the_unknown, RRT_graph,
-                              convexhulls);
-
-        if (tries % 10 == 0)
-        {
-            cluster_indices = get_clusters(cloud);
-            convexhulls = get_convexhulls(cloud, cluster_indices);
-        }
-    }
-
-    if (debug)
-    {
-        for (const auto &point : path_to_the_unknown)
-        {
-            std::cout << point.x << " " << point.y << " " << point.z << "->";
-        }
-    }
-
-    return path_to_the_unknown;
-}
-
-void PathBuilder::operator()(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-                             const pcl::PointXYZ &start_point,
-                             const pcl::PointXYZ &known_point1,
-                             const pcl::PointXYZ &known_point2,
-                             const pcl::PointXYZ &known_point3,
-                             std::vector<pcl::PointXYZ> &path_to_the_unknown,
-                             std::vector<pcl::PointXYZ> &RRT_graph)
-{
-    path_to_the_unknown = operator()(cloud, start_point, known_point1,
-                                     known_point2, known_point3, RRT_graph);
-}
-
-void PathBuilder::operator()(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-    const pcl::PointXYZ &start_point, const pcl::PointXYZ &known_point1,
-    const pcl::PointXYZ &known_point2, const pcl::PointXYZ &known_point3,
-    const std::filesystem::path &location_file_path_to_the_unknown,
-    std::vector<pcl::PointXYZ> &RRT_graph)
-{
-    std::vector<pcl::PointXYZ> path_to_the_unknown = operator()(
-        cloud, start_point, known_point1, known_point2, known_point3,
-        RRT_graph);
-    save_points_to_file(path_to_the_unknown, location_file_path_to_the_unknown);
 }

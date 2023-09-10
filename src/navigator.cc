@@ -119,8 +119,7 @@ float Navigator::get_distance_to_destination(const cv::Point3f &p1,
 
 void Navigator::rotate_to_relocalize()
 {
-    bool need_to_stop = false; // TODO: we can check pose_updated but sometimes
-                               // we get something like a race condition
+    bool need_to_stop = false;
 
     while (!pose_updated)
     {
@@ -162,8 +161,6 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f &location,
         drone->send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(1s);
 
-        // TODO: add slow rotation for large degrees
-
         if (ang_diff > 0)
         {
             drone->send_command("cw " +
@@ -178,7 +175,7 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f &location,
         if (abs(ang_diff) > 100)
             std::this_thread::sleep_for(2s);
 
-        pose_updated = false; // TODO: maybe remove?
+        pose_updated = false;
     }
 }
 
@@ -362,7 +359,6 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
             mu_align);
         explorer->set_cloud_points(aligned_points);
 
-        // TODO:conteniue
         pose_updated = false;
         const cv::Point3f last_location = get_last_location();
         std::cout << "last_location: " << last_location.x << " "
@@ -565,6 +561,12 @@ void Navigator::get_features_by_rotating()
     pose_updated = false;
 }
 
+/**
+ * @brief start navigation, initiate
+ *
+ * @param use_explorer set to true
+ * !! only runs once !!
+ */
 void Navigator::start_navigation(bool use_explorer)
 {
     update_pose_thread = std::thread(&Navigator::update_pose, this);
