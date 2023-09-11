@@ -1,7 +1,7 @@
 {
     "Vocabulary_Path": "/home/ido/rbd/rbd-slam/RBD-SLAM/Configuration/Vocabulary/ORBvoc.txt",
     "calibration_path": "/home/ido/rbd/rbd-slam/RBD-SLAM/Configuration/CalibrationFiles/tello_9F5EC2_640.yaml",
-    "map_path": "",
+    "map_path": "--use-drone",
     "data_save_dir": "/home/ido/rbd/rbd-slam/RBD-SLAM/scans",
     "_______________": 0,
     "fake_drone": false,

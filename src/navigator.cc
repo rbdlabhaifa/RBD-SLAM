@@ -570,7 +570,7 @@ void Navigator::start_navigation(bool use_explorer)
     std::this_thread::sleep_for(2s);
     drone->send_command("speed 40");
     std::this_thread::sleep_for(2s);
-    drone->send_command("up 35");
+    drone->send_command("up 60");
     std::this_thread::sleep_for(2s);
     if (existing_map)
     {
