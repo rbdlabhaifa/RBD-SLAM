@@ -93,7 +93,7 @@ bool PathBuilder::get_navigation_points(
 
     node_to_point[first_node] = navigate_starting_point;
 
-    float jump = 0.25;
+    float jump = 0.3;
 
     pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
     pcl::PointXYZ plane_mean = (known_point1 + known_point2 + known_point3) / 3;
@@ -136,8 +136,8 @@ bool PathBuilder::get_navigation_points(
         {
             break;
         }
-        float R = ((i / 700) + 0.5) * 1.2;
-        float r = (i / 700) * 1.2;
+        float R = ((i / 400) + 0.5) * 1.5;
+        float r = (i / 400) * 1.5;
         pcl::PointXYZ point_rand =
             get_random_point_on_plane(span_v1_gs, span_v2_gs, Cntr, R, r) +
             plane_mean;
@@ -200,19 +200,46 @@ bool PathBuilder::get_navigation_points(
     pcl::PointCloud<pcl::PointXYZ>::Ptr whole_tree(
         new pcl::PointCloud<pcl::PointXYZ>);
 
-    path_to_the_unknown = get_path_between_two_nodes(RRT_graph, node_to_point,
-                                                     first_node, goal_node);
+    auto initial_path = get_path_between_two_nodes(RRT_graph, node_to_point,
+                                                   first_node, goal_node);
 
     auto end_point = "end.xyz";
-    cv::Point3f end_pointCV =
-        cv::Point3f(path_to_the_unknown.back().x, path_to_the_unknown.back().y,
-                    path_to_the_unknown.back().z);
+    cv::Point3f end_pointCV = cv::Point3f(
+        initial_path.back().x, initial_path.back().y, initial_path.back().z);
     Auxilary::save_points_to_file({end_pointCV}, end_point);
+
+    // refine path
+
+    std::vector<pcl::PointXYZ> refined_path;
+    int current = 0;
+    refined_path.push_back(initial_path[current]);
+    for (int i = static_cast<int>(initial_path.size()); i > current; i--)
+    {
+        if (is_valid_movement(cloud, initial_path[current], initial_path[i],
+                              polygons))
+        {
+            refined_path.push_back(initial_path[i]);
+            current = i;
+            i = initial_path.size();
+        }
+    }
+
+    // add goal point if last was dropped
+    if (norm(goal_point - refined_path[0]) > 0.75)
+        refined_path.push_back(goal_point);
+
+    std::reverse(refined_path.begin(), refined_path.end());
+    path_to_the_unknown = refined_path;
+
+    std::cout << "\nrefined path - from " << initial_path.size() << " to "
+              << refined_path.size() << " nodes!\n"
+              << std::endl;
 
     for (lemon::ListDigraph::NodeIt it(RRT_graph); it != lemon::INVALID; ++it)
     {
         RRT_points.push_back(node_to_point[it]);
     }
+
     return true;
 }
 
@@ -227,7 +254,8 @@ std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
     auto cluster_indices = get_clusters(cloud);
     auto convexhulls = get_convexhulls(cloud, cluster_indices);
 
-    float threshold = std::pow(0.18, 2); // taken from navigation
+    float threshold = 0.05; // equal to 10cm +-
+
     std::size_t tries = 30;
     while (path_to_exit.empty() && tries-- > 0)
     {
