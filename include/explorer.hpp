@@ -52,10 +52,9 @@ class Explorer
      * @brief Use the path builder API to get a path to the unknown
      */
     std::vector<pcl::PointXYZ>
-    get_points_to_unknown(const pcl::PointXYZ &start_point);
-
-    std::vector<pcl::PointXYZ>
-    get_points_to_exit(const pcl::PointXYZ &start_point);
+    get_points_to_exit(const pcl::PointXYZ &start_point, float threshold,
+                       float jump_size, int ring_point_amount,
+                       float ring_size_scalar);
 };
 
 #endif // EXPLORER_H_

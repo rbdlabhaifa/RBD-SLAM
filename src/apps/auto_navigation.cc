@@ -76,6 +76,7 @@ int main(int argc, char *argv[])
     programData >> data;
     programData.close();
 
+    // Main config:
     std::string vocabulary_path = data["Vocabulary_Path"];
     std::string calibration_path = data["calibration_path"];
     std::string map_path = data["map_path"];
@@ -84,6 +85,16 @@ int main(int argc, char *argv[])
     bool fake_drone = data["fake_drone"];
     bool use_webcam = data["use_webcam"];
     bool offline_mode = data["offline_mode"];
+
+    // smi-magic numbers
+    // goal_finder
+    float find_exit_dist_scalar = data["find_exit_dist_scalar"];
+    // rrt - path builder
+    int rrt_path_size = data["rrt_path_size"];
+    int rrt_ring_point_amount = data["rrt_ring_point_amount"];
+    float rrt_jump_size = data["rrt_jump_size"];
+    float rrt_ring_size_scalar = data["rrt_ring_size_scalar"];
+    float rrt_goal_threshold = data["rrt_goal_threshold"];
 
     std::shared_ptr<SomeDrone> drone = std::make_shared<Drone>(!fake_drone);
 
@@ -105,7 +116,10 @@ int main(int argc, char *argv[])
 
     while (true)
     {
-        const auto path = navigator.get_path_to_the_unknown(3);
+        const auto path = navigator.get_path_to_the_unknown(
+            find_exit_dist_scalar, rrt_goal_threshold, rrt_jump_size,
+            rrt_ring_point_amount, rrt_ring_size_scalar, rrt_path_size);
+
         std::for_each(path.begin(), path.end(),
                       [&](const auto &p)
                       { navigator.goto_point(cv::Point3f(p.x, p.y, p.z)); });

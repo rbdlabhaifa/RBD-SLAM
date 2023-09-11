@@ -26,7 +26,6 @@
 #include "slam_utils.hpp"
 #include "streamer.hpp"
 
-
 #define DESTINATIONS_FILE_NAME "drone_destinations.txt"
 
 using namespace std::chrono_literals;
@@ -37,20 +36,22 @@ static bool continue_session = false;
 
 void exit_session(int s) { continue_session = false; }
 
-std::filesystem::path create_new_directory_named_current_time() {
-    // TODO: Maybe change the time format
+std::filesystem::path create_new_directory_named_current_time()
+{
     time_t now = time(nullptr);
     std::string current_time = std::string(ctime(&now));
     current_time.pop_back();
     std::filesystem::path directory_named_time = current_time;
 
     std::filesystem::create_directories(directory_named_time);
-    std::cout << "out---------------------------------------------" << std::endl;
+    std::cout << "out---------------------------------------------"
+              << std::endl;
     return directory_named_time;
 }
 
-void save_point_data(ORB_SLAM3::System& SLAM,
-                     const std::filesystem::path& directory) {
+void save_point_data(ORB_SLAM3::System &SLAM,
+                     const std::filesystem::path &directory)
+{
     const std::filesystem::path point_data_xyz_path =
         directory / "point_data.xyz";
     const std::filesystem::path aligned_point_data_xyz_path =
@@ -58,15 +59,8 @@ void save_point_data(ORB_SLAM3::System& SLAM,
     const std::filesystem::path aligned_destinations_xyz_path =
         directory / "aligned_destinations.xyz";
 
-    // Jerry additions ----------------
-    
-
-    // -------------------------------------------------
-
-    const std::vector<ORB_SLAM3::MapPoint*> map_points =
-        SLAM.GetAtlas()
-            ->GetCurrentMap()  // TODO: should we take all the maps?
-            ->GetAllMapPoints();
+    const std::vector<ORB_SLAM3::MapPoint *> map_points =
+        SLAM.GetAtlas()->GetCurrentMap()->GetAllMapPoints();
 
     const auto [R_align, mu_align] =
         SLAMUtils::get_alignment_matrices(map_points);
@@ -78,8 +72,10 @@ void save_point_data(ORB_SLAM3::System& SLAM,
     std::ofstream point_data_xyz(point_data_xyz_path);
     std::ofstream aligned_destinations_xyz(aligned_destinations_xyz_path);
 
-    for (const auto& p : map_points) {
-        if (p != nullptr) {
+    for (const auto &p : map_points)
+    {
+        if (p != nullptr)
+        {
             const Eigen::Vector3f v = p->GetWorldPos();
 
             point_data_xyz << v.x() << " " << v.y() << " " << v.z()
@@ -87,12 +83,14 @@ void save_point_data(ORB_SLAM3::System& SLAM,
         }
     }
 
-    for (const auto& v : aligned_map_points) {
+    for (const auto &v : aligned_map_points)
+    {
         aligned_point_data_xyz << v.x() << " " << v.y() << " " << v.z()
                                << std::endl;
     }
 
-    for (const auto& d : SLAM.destinations) {
+    for (const auto &d : SLAM.destinations)
+    {
         auto d_aligned =
             SLAMUtils::calc_aligned_point(cv::Point3f(d), R_align, mu_align);
         aligned_destinations_xyz << d_aligned.x << " " << d_aligned.y << " "
@@ -104,8 +102,11 @@ void save_point_data(ORB_SLAM3::System& SLAM,
     aligned_point_data_xyz.close();
 }
 
-void register_signal() {
-    struct sigaction sigint_handler {};
+void register_signal()
+{
+    struct sigaction sigint_handler
+    {
+    };
     sigint_handler.sa_handler = exit_session;
     sigemptyset(&sigint_handler.sa_mask);
     sigint_handler.sa_flags = 0;
@@ -113,8 +114,10 @@ void register_signal() {
     continue_session = true;
 }
 
-int main(int argc, char** argv) {
-    if (argc < 3) {
+int main(int argc, char **argv)
+{
+    if (argc < 3)
+    {
         std::cerr << "USAGE: " << argv[0]
                   << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH "
                      "[--continue MAP_FILE_PATH] [--use-webcam]"
@@ -144,7 +147,7 @@ int main(int argc, char** argv) {
     Streamer streamer(use_webcam
                           ? std::nullopt
                           : std::optional<std::shared_ptr<SomeDrone>>{drone});
-    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>>& frame_queue =
+    boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>> &frame_queue =
         streamer.get_frame_queue();
 
     streamer.start_stream();
@@ -153,9 +156,11 @@ int main(int argc, char** argv) {
 
     std::array<uchar, 640 * 480 * 3> current_frame{};
 
-    while (continue_session) {
+    while (continue_session)
+    {
         auto timestamp = std::chrono::steady_clock::now();
-        while (!frame_queue.pop(current_frame)) {
+        while (!frame_queue.pop(current_frame))
+        {
             std::this_thread::sleep_for(20ms);
         }
 

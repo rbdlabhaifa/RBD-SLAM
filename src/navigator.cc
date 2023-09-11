@@ -356,8 +356,10 @@ void Navigator::reset_map_w_context()
     }
 }
 
-std::vector<pcl::PointXYZ>
-Navigator::get_path_to_the_unknown(std::size_t path_size)
+std::vector<pcl::PointXYZ> Navigator::get_path_to_the_unknown(
+    const float dist_scalar, const float threshold, const float jump_size,
+    const int ring_point_amount, const float ring_size_scalar,
+    std::size_t path_size)
 {
     if (!explorer->is_set_plane_of_flight())
         return {};
@@ -388,12 +390,16 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         auto [k_p1, k_p2, k_p3] = explorer->get_plane_of_flight();
 
         goal_exit_point = goal_finder::Find_Goal(transformed_vec, vec_last_loc,
-                                                 k_p1, k_p2, k_p3);
-        explorer->exit_point = pcl::PointXYZ(
-            goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
+                                                 k_p1, k_p2, k_p3, dist_scalar);
+        explorer->exit_point =
+            pcl::PointXYZ(static_cast<float>(goal_exit_point[0]),
+                          static_cast<float>(goal_exit_point[1]),
+                          static_cast<float>(goal_exit_point[2]));
         // draw the exit point in pangolin
-        SLAM->get_map_drawer()->Exit_point = Eigen::Matrix<float, 3, 1>{
-            goal_exit_point.x(), goal_exit_point.y(), goal_exit_point.z()};
+        SLAM->get_map_drawer()->Exit_point = {
+            static_cast<float>(goal_exit_point.x()),
+            static_cast<float>(goal_exit_point.y()),
+            static_cast<float>(goal_exit_point.z())};
         SLAM->get_map_drawer()->set_draw_exit(true);
 
         std::promise<std::vector<pcl::PointXYZ>> path_promise;
@@ -402,9 +408,10 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         std::thread get_path_to_unknown(
             [&](std::promise<std::vector<pcl::PointXYZ>> path_promise)
             {
-                path_promise.set_value(
-                    explorer->get_points_to_unknown(pcl::PointXYZ(
-                        last_location.x, last_location.y, last_location.z)));
+                path_promise.set_value(explorer->get_points_to_exit(
+                    pcl::PointXYZ(last_location.x, last_location.y,
+                                  last_location.z),
+                    threshold, jump_size, ring_point_amount, ring_size_scalar));
             },
             std::move(path_promise));
 
@@ -432,9 +439,9 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         data_dir / ("path" + std::to_string(paths_created) + ".xyz"));
 
     std::vector<pcl::PointXYZ> save_exit = {{
-        goal_exit_point(0),
-        goal_exit_point(1),
-        goal_exit_point(2),
+        static_cast<float>(goal_exit_point(0)),
+        static_cast<float>(goal_exit_point(1)),
+        static_cast<float>(goal_exit_point(2)),
     }};
 
     Auxilary::save_points_to_file(

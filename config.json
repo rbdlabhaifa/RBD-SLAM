@@ -1,10 +1,18 @@
 {
+    "----------------PATHS----------------": "",
     "Vocabulary_Path": "/home/ido/rbd/rbd-slam/RBD-SLAM/Configuration/Vocabulary/ORBvoc.txt",
     "calibration_path": "/home/ido/rbd/rbd-slam/RBD-SLAM/Configuration/CalibrationFiles/tello_9F5EC2_640.yaml",
     "map_path": "--use-drone",
     "data_save_dir": "/home/ido/rbd/rbd-slam/RBD-SLAM/scans",
-    "_______________": 0,
+    "----------------OPTIONS----------------": "",
     "fake_drone": false,
     "use_webcam": false,
-    "offline_mode": false
+    "offline_mode": false,
+    "----------------FIND_GOAL----------------": "",
+    "find_exit_dist_scalar": 1.35,
+    "----------------RRT----------------": "",
+    "rrt_ring_point_amount": 400,
+    "rrt_jump_size": 0.3,
+    "rrt_ring_size_scalar": 1.5,
+    "rrt_goal_threshold": 0.05
 }

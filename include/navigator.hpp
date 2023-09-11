@@ -79,6 +79,8 @@ class Navigator
     std::condition_variable cv;
     std::mutex cv_m;
 
+    Eigen::Vector3d last_exit_point = {-1, -1, -1};
+
     /**
      * @brief Attempt to get the last location relative to the
      * SLAM map, rotating the drone if not localized
@@ -138,7 +140,10 @@ class Navigator
     // bool goto_the_unknown(); /* UNUSED */
     bool goto_next_destination();
     std::vector<pcl::PointXYZ>
-    get_path_to_the_unknown(std::size_t path_size = DEFAULT_MAX_PATH_SIZE);
+    get_path_to_the_unknown(float dist_scalar, const float threshold,
+                            const float jump_size, const int ring_point_amount,
+                            const float ring_size_scalar,
+                            std::size_t path_size = DEFAULT_MAX_PATH_SIZE);
     void goto_point(const cv::Point3f &p);
 
     /**

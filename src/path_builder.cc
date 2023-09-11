@@ -69,7 +69,9 @@ bool PathBuilder::get_navigation_points(
     std::vector<pcl::PointXYZ> &path_to_the_unknown,
     std::vector<pcl::PointXYZ> &RRT_points,
     const std::vector<std::unique_ptr<geos::geom::Geometry>> &polygons,
-    const pcl::PointXYZ &goal_point, const float threshold)
+    const pcl::PointXYZ &goal_point, const float threshold,
+    const float jump_size, const int ring_point_amount,
+    const float ring_size_scalar)
 {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
@@ -92,8 +94,6 @@ bool PathBuilder::get_navigation_points(
     Auxilary::save_points_to_file({navigateCv}, map_filename);
 
     node_to_point[first_node] = navigate_starting_point;
-
-    float jump = 0.3;
 
     pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
     pcl::PointXYZ plane_mean = (known_point1 + known_point2 + known_point3) / 3;
@@ -136,8 +136,8 @@ bool PathBuilder::get_navigation_points(
         {
             break;
         }
-        float R = ((i / 400) + 0.5) * 1.5;
-        float r = (i / 400) * 1.5;
+        float R = ((i / ring_point_amount) + 0.5) * ring_size_scalar;
+        float r = (i / ring_point_amount) * ring_size_scalar;
         pcl::PointXYZ point_rand =
             get_random_point_on_plane(span_v1_gs, span_v2_gs, Cntr, R, r) +
             plane_mean;
@@ -154,7 +154,7 @@ bool PathBuilder::get_navigation_points(
                 (*navigate_data)[v_closest_point[0]];
 
             pcl::PointXYZ point_new =
-                close_point + jump * (point_rand - close_point) /
+                close_point + jump_size * (point_rand - close_point) /
                                   (std::sqrt((point_rand - close_point) *
                                              (point_rand - close_point)));
 
@@ -247,14 +247,14 @@ std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
     const pcl::PointXYZ &start_point, const pcl::PointXYZ &exit_point,
     const pcl::PointXYZ &known_point1, const pcl::PointXYZ &known_point2,
-    const pcl::PointXYZ &known_point3, std::vector<pcl::PointXYZ> &RRT_graph)
+    const pcl::PointXYZ &known_point3, std::vector<pcl::PointXYZ> &RRT_graph,
+    const float threshold, const float jump_size, const int ring_point_amount,
+    const float ring_size_scalar)
 {
     std::vector<pcl::PointXYZ> path_to_exit;
 
     auto cluster_indices = get_clusters(cloud);
     auto convexhulls = get_convexhulls(cloud, cluster_indices);
-
-    float threshold = 0.05; // equal to 10cm +-
 
     std::size_t tries = 30;
     while (path_to_exit.empty() && tries-- > 0)
@@ -267,7 +267,8 @@ std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
 
         bool rrt_finished = get_navigation_points(
             cloud, start_point, known_point1, known_point2, known_point3,
-            path_to_exit, RRT_graph, convexhulls, exit_point, threshold);
+            path_to_exit, RRT_graph, convexhulls, exit_point, threshold,
+            jump_size, ring_point_amount, ring_size_scalar);
 
         if (!rrt_finished)
             continue;

@@ -421,7 +421,8 @@ std::vector<double> DataAnalyzer::calculate_average_distances(
 std::pair<std::vector<double>, std::vector<double>>
 DataAnalyzer::find_exit(const std::vector<std::vector<double>> &datapoints,
                         const std::vector<double> &drone_pos,
-                        const std::vector<double> &avg_distances)
+                        const std::vector<double> &avg_distances,
+                        const float dist_scalar)
 {
     size_t num_angles = avg_distances.size();
     std::vector<double> angles(num_angles);
@@ -488,9 +489,11 @@ DataAnalyzer::find_exit(const std::vector<std::vector<double>> &datapoints,
             std::sqrt(std::pow(point[0], 2) + std::pow(point[1], 2));
     }
     mean_distance /= datapoints.size();
-
-    double exit_x = drone_pos[0] + std::cos(exit_angle) * 1.5 * mean_distance;
-    double exit_y = drone_pos[1] + std::sin(exit_angle) * 1.5 * mean_distance;
+    // TODO(ido): add to config.json
+    double exit_x =
+        drone_pos[0] + std::cos(exit_angle) * dist_scalar * mean_distance;
+    double exit_y =
+        drone_pos[1] + std::sin(exit_angle) * dist_scalar * mean_distance;
     std::vector<double> exit_point = {exit_x, exit_y};
     std::vector<double> exit_angles = {exit_angle};
 
@@ -506,7 +509,7 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
                           Eigen::Vector3d starting_pos,
                           pcl::PointXYZ &known_point1,
                           pcl::PointXYZ &known_point2,
-                          pcl::PointXYZ &known_point3)
+                          pcl::PointXYZ &known_point3, const float dist_scalar)
 {
     // calculate A
     Eigen::Matrix<double, 2, 3> A;
@@ -572,7 +575,8 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
 
     std::vector<size_t> nan_indices;
     std::pair<std::vector<double>, std::vector<double>> exit_result =
-        analyzer.find_exit(projected_data, drone_position, avg_distances);
+        analyzer.find_exit(projected_data, drone_position, avg_distances,
+                           dist_scalar);
     Eigen::Matrix<double, 1, 2> ret_mat;
     ret_mat << exit_result.first[0], exit_result.first[1];
 
@@ -583,56 +587,3 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
 }
 
 } // namespace goal_finder
-
-int main_example()
-{
-    goal_finder::DataReader reader;
-    goal_finder::DataProcessor processor;
-    goal_finder::DataAnalyzer analyzer;
-    std::string file_path = "1.xyz";
-    try
-    {
-        std::vector<std::vector<double>> data_points =
-            reader.read_file(file_path);
-        // for (const auto& point : data_points) {
-        //     std::cout << "x: " << point[0] << ", y: " << point[1] << ", z: "
-        //     << point[2] << std::endl;
-        // }
-        // std::cout << "CLEEEEAAAN" << std::endl;
-
-        // DEBUG CLEAN DATA
-        std::vector<std::vector<double>> zscores =
-            processor.calculate_zscores(data_points);
-        std::vector<std::vector<double>> cleaned_data =
-            processor.clean_data(data_points, zscores, 3);
-        std::vector<double> middle_point =
-            analyzer.find_middle_point(data_points);
-
-        // for (const auto& point : cleaned_data) {
-        //     std::cout << "New x: " << point[0] << ", y: " << point[1] << ",
-        //     z: " << point[2] << std::endl;
-        // }
-        std::vector<size_t> best_dimensions =
-            analyzer.select_best_dimensions(data_points);
-
-        std::vector<std::vector<double>> projected_data =
-            analyzer.project_to_dimensions(data_points, best_dimensions);
-        std::vector<double> drone_position =
-            analyzer.find_middle_point(projected_data);
-        std::vector<double> avg_distances =
-            analyzer.calculate_average_distances(projected_data,
-                                                 drone_position);
-        std::vector<size_t> nan_indices;
-        std::pair<std::vector<double>, std::vector<double>> exit_result =
-            analyzer.find_exit(projected_data, drone_position, avg_distances);
-        std::vector<double> exit_point = exit_result.first;
-        std::vector<double> exit_angle = exit_result.second;
-        // Access the exit point and exit angle
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error: " << e.what() << std::endl;
-    }
-
-    return 0;
-}

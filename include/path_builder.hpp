@@ -47,7 +47,9 @@ class PathBuilder
         std::vector<pcl::PointXYZ> &path_to_the_unknown,
         std::vector<pcl::PointXYZ> &RRT_points,
         const std::vector<std::unique_ptr<geos::geom::Geometry>> &polygons,
-        const pcl::PointXYZ &goal_point, const float threshold);
+        const pcl::PointXYZ &goal_point, const float threshold,
+        const float jump_size, const int ring_point_amount,
+        const float ring_size_scalar);
 
   public:
     std::vector<std::vector<pcl::PointXYZ>> best_paths;
@@ -57,7 +59,9 @@ class PathBuilder
         const pcl::PointXYZ &start_point, const pcl::PointXYZ &exit_point,
         const pcl::PointXYZ &known_point1, const pcl::PointXYZ &known_point2,
         const pcl::PointXYZ &known_point3,
-        std::vector<pcl::PointXYZ> &RRT_graph);
+        std::vector<pcl::PointXYZ> &RRT_graph, const float threshold,
+        const float jump_size, const int ring_point_amount,
+        const float ring_size_scalar);
 };
 
 #endif // PATH_BUILDER_H_

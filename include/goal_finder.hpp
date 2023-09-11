@@ -76,14 +76,15 @@ class DataAnalyzer
     std::pair<std::vector<double>, std::vector<double>>
     find_exit(const std::vector<std::vector<double>> &datapoints,
               const std::vector<double> &drone_pos,
-              const std::vector<double> &avg_distances);
+              const std::vector<double> &avg_distances,
+              const float dist_scalar);
 };
 
 Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
                           Eigen::Vector3d starting_pos,
                           pcl::PointXYZ &known_point1,
                           pcl::PointXYZ &known_point2,
-                          pcl::PointXYZ &known_point3);
+                          pcl::PointXYZ &known_point3, float dist_scalar);
 }; // namespace goal_finder
 
 #endif /* end of NAVIGATOR_H_ */

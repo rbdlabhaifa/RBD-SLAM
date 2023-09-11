@@ -50,7 +50,10 @@ std::vector<pcl::PointXYZ> Explorer::get_last_graph()
 }
 
 std::vector<pcl::PointXYZ>
-Explorer::get_points_to_unknown(const pcl::PointXYZ &start_point)
+Explorer::get_points_to_exit(const pcl::PointXYZ &start_point,
+                             const float threshold, const float jump_size,
+                             const int ring_point_amount,
+                             const float ring_size_scalar)
 {
     if (!got_plane_of_flight)
     {
@@ -60,29 +63,10 @@ Explorer::get_points_to_unknown(const pcl::PointXYZ &start_point)
     }
 
     PathBuilder builder;
-    auto path = builder.build_path_to_exit(cloud, start_point, this->exit_point,
-                                           known_points[0], known_points[1],
-                                           known_points[2], RRT_points);
-    best_paths = builder.best_paths;
-
-    return path;
-}
-
-std::vector<pcl::PointXYZ>
-Explorer::get_points_to_exit(const pcl::PointXYZ &start_point)
-{
-    if (!got_plane_of_flight)
-    {
-        std::cerr << "Explorer: Expected plane of flight to be set"
-                  << std::endl;
-        return {};
-    }
-
-    PathBuilder builder;
-    auto path = builder.build_path_to_exit(cloud, start_point, exit_point,
-                                           known_points[0], known_points[1],
-                                           known_points[2], RRT_points);
-    best_paths = builder.best_paths;
+    auto path = builder.build_path_to_exit(
+        cloud, start_point, exit_point, known_points[0], known_points[1],
+        known_points[2], RRT_points, threshold, jump_size, ring_point_amount,
+        ring_size_scalar);
 
     return path;
 }

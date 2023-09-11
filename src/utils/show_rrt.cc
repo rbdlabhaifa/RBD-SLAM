@@ -1,6 +1,7 @@
 #include <geos/triangulate/polygon/ConstrainedDelaunayTriangulator.h>
 #include <geos/triangulate/tri/Tri.h>
 #include <geos/triangulate/tri/TriList.h>
+#include <nlohmann/json.hpp>
 #include <opencv2/core/hal/interface.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/io/pcd_io.h>
@@ -126,6 +127,31 @@ int main(int argc, char **argv)
 
     const float scale_factor = std::stof(argv[4]);
 
+    std::ifstream programData("/home/ido/rbd/rbd-slam/RBD-SLAM/config.json");
+    nlohmann::json data;
+    programData >> data;
+    programData.close();
+
+    // Main config:
+    std::string vocabulary_path = data["Vocabulary_Path"];
+    std::string calibration_path = data["calibration_path"];
+    std::string map_path = data["map_path"];
+    std::string data_save_dir = data["data_save_dir"];
+
+    bool fake_drone = data["fake_drone"];
+    bool use_webcam = data["use_webcam"];
+    bool offline_mode = data["offline_mode"];
+
+    // smi-magic numbers
+    // goal_finder
+    float find_exit_dist_scalar = data["find_exit_dist_scalar"];
+    // rrt - path builder
+    int rrt_path_size = data["rrt_path_size"];
+    int rrt_ring_point_amount = data["rrt_ring_point_amount"];
+    float rrt_jump_size = data["rrt_jump_size"];
+    float rrt_ring_size_scalar = data["rrt_ring_size_scalar"];
+    float rrt_goal_threshold = data["rrt_goal_threshold"];
+
     Explorer explorer(cloud);
     explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);
 
@@ -141,13 +167,16 @@ int main(int argc, char **argv)
             std::vector<double>{point.x, point.y, point.z});
     }
 
-    auto goal_exit_point =
-        goal_finder::Find_Goal(transformed_vec, vec_last_loc, k_p1, k_p2, k_p3);
+    auto goal_exit_point = goal_finder::Find_Goal(
+        transformed_vec, vec_last_loc, k_p1, k_p2, k_p3, find_exit_dist_scalar);
 
-    explorer.exit_point = pcl::PointXYZ(goal_exit_point[0], goal_exit_point[1],
-                                        goal_exit_point[2]);
+    explorer.exit_point = pcl::PointXYZ(static_cast<float>(goal_exit_point[0]),
+                                        static_cast<float>(goal_exit_point[1]),
+                                        static_cast<float>(goal_exit_point[2]));
 
-    auto path = explorer.get_points_to_exit((*start_point)[0]);
+    auto path = explorer.get_points_to_exit(
+        (*start_point)[0], rrt_goal_threshold, rrt_jump_size,
+        rrt_ring_point_amount, rrt_ring_size_scalar);
 
     std::cout << std::endl;
     for (auto point : path)

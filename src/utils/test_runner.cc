@@ -9,8 +9,22 @@
 #include <string>
 #include <vector>
 
+#include <algorithm>
+#include <fstream>
+#include <iterator>
+#include <memory>
+#include <opencv2/core/types.hpp>
+#include <optional>
+#include <thread>
+
 #include "goal_finder.hpp"
 #include "pcl_operations.hpp"
+
+#include "System.h"
+#include "Viewer.h"
+#include "drone.hpp"
+#include "navigator.hpp"
+#include "streamer.hpp"
 
 void save_points_to_file(const std::vector<pcl::PointXYZ> &points,
                          const std::filesystem::path &location_file_path)
@@ -34,36 +48,41 @@ int main(int argc, char **argv)
     pcl::PointCloud<pcl::PointXYZ>::Ptr start_point(
         new pcl::PointCloud<pcl::PointXYZ>);
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[2], *plane) ==
-        -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(
+            "/home/ido/rbd/rbd-slam/RBD-SLAM/good_scans/test/pcd_s/"
+            "plane_points.pcd",
+            *plane) == -1) //* load the file
     {
         PCL_ERROR("Couldn't read file\n");
         return -1;
     }
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[3], *start_point) ==
-        -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(
+            "/home/ido/rbd/rbd-slam/RBD-SLAM/good_scans/test/pcd_s/start.pcd",
+            *start_point) == -1) //* load the file
     {
         PCL_ERROR("Couldn't read file\n");
         return -1;
     }
 
     goal_finder::DataReader map_reader;
-    std::vector<std::vector<double>> vec_map = map_reader.read_file(argv[1]);
+    std::vector<std::vector<double>> vec_map =
+        map_reader.read_file("/home/ido/rbd/rbd-slam/RBD-SLAM/good_scans/test/"
+                             "aligned_points.xyz");
 
     pcl::PointXYZ start_p = (*start_point)[0];
     Eigen::Vector3d start_pos{start_p.x, start_p.y, start_p.z};
 
     Eigen::Vector3d exit = goal_finder::Find_Goal(
-        vec_map, start_pos, (*plane)[0], (*plane)[1], (*plane)[2]);
+        vec_map, start_pos, (*plane)[0], (*plane)[1], (*plane)[2], 1.35);
 
     std::cout << "EXIT: " << exit << std::endl;
 
     std::vector<pcl::PointXYZ> save;
     pcl::PointXYZ s_p{
-        exit.x(),
-        exit.y(),
-        exit.z(),
+        static_cast<float>(exit.x()),
+        static_cast<float>(exit.y()),
+        static_cast<float>(exit.z()),
     };
     save.push_back(s_p);
 
