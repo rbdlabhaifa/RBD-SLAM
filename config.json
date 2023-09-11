@@ -11,6 +11,7 @@
     "----------------FIND_GOAL----------------": "",
     "find_exit_dist_scalar": 1.35,
     "----------------RRT----------------": "",
+    "rrt_path_size": 5,
     "rrt_ring_point_amount": 400,
     "rrt_jump_size": 0.3,
     "rrt_ring_size_scalar": 1.5,
