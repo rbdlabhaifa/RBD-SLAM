@@ -4,8 +4,10 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <opencv2/core/types.hpp>
 #include <optional>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -17,13 +19,22 @@
 
 using namespace std::chrono_literals;
 
-std::filesystem::path create_new_directory_named_current_time()
+std::filesystem::path
+create_new_directory_named_current_time(std::string from_dir = "")
 {
-    // TODO: Maybe change the time format
-    time_t now = time(nullptr);
-    std::string current_time = std::string(ctime(&now));
-    current_time.pop_back();
-    std::filesystem::path directory_named_time = current_time;
+    if (from_dir != "" && from_dir.back() != '/')
+        from_dir = from_dir + "/";
+
+    std::time_t now = std::time(nullptr);
+    std::tm time_info = *std::localtime(&now);
+
+    char buffer[20]; // Buffer to store the formatted time
+
+    // Format the time as "DD/MM/YY hh:mm:ss"
+    std::strftime(buffer, sizeof(buffer), "%d.%m.%y %H:%M:%S", &time_info);
+
+    std::string current_time(buffer);
+    std::filesystem::path directory_named_time = from_dir + current_time;
 
     std::filesystem::create_directories(directory_named_time);
     return directory_named_time;
@@ -57,39 +68,22 @@ read_drone_destinations(const std::filesystem::path &destinations_file_path)
     return destinations;
 }
 
-bool find_arg(int argc, char *const argv[], const std::string &arg)
-{
-    for (int i = 0; i < argc; ++i)
-    {
-        if (std::string(argv[i]) == arg)
-            return true;
-    }
-
-    return false;
-}
-
 int main(int argc, char *argv[])
 {
-    if (argc < 3)
-    {
-        std::cerr
-            << "USAGE: " << argv[0]
-            << " VOCABULARY_FILE_PATH CALIBRATION_FILE_PATH "
-               "[--use-webcam] [--use-drone] [--fake-drone] [--offline-mode]"
-            << std::endl;
-        return 1;
-    }
 
-    std::cout << "argc: " << argc << std::endl;
-    for (int i = 0; i < argc; i++)
-    {
-        std::cout << argv[i] << std::endl;
-    }
+    std::ifstream programData("/home/ido/rbd/rbd-slam/RBD-SLAM/config.json");
+    nlohmann::json data;
+    programData >> data;
+    programData.close();
 
-    const bool use_drone = find_arg(argc, argv, "--use-drone");
-    const bool use_webcam = find_arg(argc, argv, "--use-webcam");
-    const bool fake_drone = find_arg(argc, argv, "--fake-drone");
-    const bool offline_mode = find_arg(argc, argv, "--offline-mode");
+    std::string vocabulary_path = data["Vocabulary_Path"];
+    std::string calibration_path = data["calibration_path"];
+    std::string map_path = data["map_path"];
+    std::string data_save_dir = data["data_save_dir"];
+
+    bool fake_drone = data["fake_drone"];
+    bool use_webcam = data["use_webcam"];
+    bool offline_mode = data["offline_mode"];
 
     std::shared_ptr<SomeDrone> drone = std::make_shared<Drone>(!fake_drone);
 
@@ -100,8 +94,9 @@ int main(int argc, char *argv[])
                           : std::optional<std::shared_ptr<SomeDrone>>{drone});
 
     const std::filesystem::path data_dir =
-        create_new_directory_named_current_time();
-    Navigator navigator(drone, argv[1], argv[2], argv[3],
+        create_new_directory_named_current_time(data_save_dir);
+
+    Navigator navigator(drone, vocabulary_path, calibration_path, map_path,
                         streamer.get_frame_queue(), false, data_dir);
     std::cout << "Saving data to " << data_dir << std::endl;
 
