@@ -102,4 +102,8 @@ target_link_libraries(show_rrt PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} path_buil
 # test_runner
 add_executable(test_runner src/utils/test_runner.cc)
 target_include_directories(test_runner PRIVATE include)
-target_link_libraries(test_runner PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} goal_finder pcl_operations eigen_operations Eigen3::Eigen)
+target_link_libraries(test_runner PRIVATE ${PCL_LIBRARIES})
+target_link_libraries(test_runner PRIVATE ${OpenCV_LIBS} ${Boost_LIBRARIES})
+target_link_libraries(test_runner PRIVATE ORB_SLAM3 ${Pangolin_LIBRARIES})
+target_link_libraries(test_runner PRIVATE tello_stream path_builder slam_utils goal_finder pcl_operations eigen_operations Eigen3::Eigen)
+target_include_directories(test_runner PRIVATE include ${ORB_SLAM3_INCLUDES})

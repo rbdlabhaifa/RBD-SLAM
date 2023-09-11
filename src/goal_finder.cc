@@ -344,6 +344,8 @@ DataAnalyzer::count_nan_dist_neighbors(const std::vector<size_t> &nan_indices,
         nan_counts[nan_index] = right_neighbor > left_neighbor
                                     ? (right_neighbor - left_neighbor - 1)
                                     : 0;
+        std::cout << "nan_index " << std::to_string(nan_index) << ": "
+                  << nan_counts[nan_index] << std::endl;
     }
     return nan_counts;
 }
@@ -403,7 +405,7 @@ std::vector<double> DataAnalyzer::calculate_average_distances(
         }
 
         size_t count = indices.size();
-        count_datapoints_per_angle[i] = count;
+        count_datapoints_per_angle[i] = static_cast<int>(count);
 
         if (count > 1)
         {
@@ -414,6 +416,9 @@ std::vector<double> DataAnalyzer::calculate_average_distances(
             }
             avg_distances[i] = sum_distances / static_cast<double>(count);
         }
+        if (i == 9)
+            std::cout << "count" << count << " avrg_dist " << avg_distances[i]
+                      << std::endl;
     }
     return avg_distances;
 }
@@ -489,8 +494,8 @@ DataAnalyzer::find_exit(const std::vector<std::vector<double>> &datapoints,
     }
     mean_distance /= datapoints.size();
 
-    double exit_x = drone_pos[0] + std::cos(exit_angle) * mean_distance;
-    double exit_y = drone_pos[1] + std::sin(exit_angle) * mean_distance;
+    double exit_x = drone_pos[0] + std::cos(exit_angle) * 1.2 * mean_distance;
+    double exit_y = drone_pos[1] + std::sin(exit_angle) * 1.2 * mean_distance;
     std::vector<double> exit_point = {exit_x, exit_y};
     std::vector<double> exit_angles = {exit_angle};
 
@@ -548,8 +553,6 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
         }
     }
 
-    std::cout << "A trans: " << A.transpose() << std::endl;
-
     Eigen::Vector3d plane_mean_mat{plane_mean.x, plane_mean.y, plane_mean.z};
     eigen_cleaned_data.rowwise() -= plane_mean_mat.transpose();
 
@@ -558,17 +561,10 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
 
     Eigen::Matrix<double, 3, 1> start_pos_mat{
         starting_pos.x(), starting_pos.y(), starting_pos.z()};
-    std::cout << "start_pose_mat before  " << start_pos_mat.transpose()
-              << std::endl;
 
     start_pos_mat -= plane_mean_mat;
-    std::cout << "plane_mean  " << plane_mean_mat.transpose() << std::endl;
-    std::cout << "start_pose_mat after  " << start_pos_mat.transpose()
-              << std::endl;
 
     auto proj_pose_mat = start_pos_mat.transpose() * A.transpose();
-
-    std::cout << "projected pose mat: " << proj_pose_mat << std::endl;
 
     std::vector<double> drone_position{proj_pose_mat(0), proj_pose_mat(1)};
 
@@ -577,6 +573,11 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
 
     std::vector<double> avg_distances =
         analyzer.calculate_average_distances(projected_data, drone_position);
+
+    for (int i = 0; i < avg_distances.size(); i += 50)
+    {
+        std::cout << std::to_string(i) << ": " << avg_distances[i] << std::endl;
+    }
 
     std::vector<size_t> nan_indices;
     std::pair<std::vector<double>, std::vector<double>> exit_result =

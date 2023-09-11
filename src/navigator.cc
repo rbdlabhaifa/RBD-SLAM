@@ -343,6 +343,19 @@ void deleteFile(const std::string &filePath)
     }
 }
 
+void Navigator::reset_map_w_context()
+{
+    std::vector<ORB_SLAM3::MapPoint *> tracked_points =
+        SLAM->GetTrackedMapPoints();
+    SLAM->GetAtlas()->GetCurrentMap()->clear();
+
+    ORB_SLAM3::Map *current_slam_map = SLAM->GetAtlas()->GetCurrentMap();
+    for (ORB_SLAM3::MapPoint *map_point : tracked_points)
+    {
+        current_slam_map->AddMapPoint(map_point);
+    }
+}
+
 std::vector<pcl::PointXYZ>
 Navigator::get_path_to_the_unknown(std::size_t path_size)
 {
@@ -363,6 +376,7 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         const cv::Point3f last_location = get_last_location();
         std::cout << "last_location: " << last_location.x << " "
                   << last_location.y << " " << last_location.z << std::endl;
+
         // get exit point
         std::vector<std::vector<double>> transformed_vec =
             EigenOperations::vec_eigen_mat2vec_vec(aligned_points);
@@ -378,25 +392,9 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         explorer->exit_point = pcl::PointXYZ(
             goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
         // draw the exit point in pangolin
-        SLAM->get_map_drawer()->Exit_point = Eigen::Matrix<float, 3, 1>(
-            goal_exit_point.x(), goal_exit_point.y(), goal_exit_point.z());
+        SLAM->get_map_drawer()->Exit_point = Eigen::Matrix<float, 3, 1>{
+            goal_exit_point.x(), goal_exit_point.y(), goal_exit_point.z()};
         SLAM->get_map_drawer()->set_draw_exit(true);
-
-        // std::promise<pcl::PointXYZ> pof_promise;
-        // auto pof_future = pof_promise.get_future();
-        // std::thread get_pof(&Navigator::get_point_of_interest,
-        // aligned_points,
-        //                     std::move(pof_promise), current_dest_point++,
-        //                     last_location);
-
-        // do {
-        //     drone->send_command("rc 0 0 0 0", false);
-        // } while (pof_future.wait_for(2s) != std::future_status::ready);
-
-        // const std::shared_ptr<pcl::PointXYZ> pof(
-        //     new pcl::PointXYZ(pof_future.get()));
-        // get_pof.join();
-        // std::cout << "FOUND POINT OF INTEREST!" << std::endl;
 
         std::promise<std::vector<pcl::PointXYZ>> path_promise;
         auto path_future = path_promise.get_future();
@@ -431,30 +429,18 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
 
     Auxilary::save_points_to_file(
         path_to_the_unknown,
-        data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
+        data_dir / ("path" + std::to_string(paths_created) + ".xyz"));
 
-    std::vector<pcl::PointXYZ> save_exit;
-    pcl::PointXYZ s_p{
-        goal_exit_point.x(),
-        goal_exit_point.y(),
-        goal_exit_point.z(),
-    };
-    save_exit.push_back(s_p);
+    std::vector<pcl::PointXYZ> save_exit = {{
+        goal_exit_point(0),
+        goal_exit_point(1),
+        goal_exit_point(2),
+    }};
 
     Auxilary::save_points_to_file(
         save_exit,
-        data_dir / ("exit" + std::to_string(++paths_created) + ".xyz"));
+        data_dir / ("exit" + std::to_string(paths_created) + ".xyz"));
 
-    std::cout << "GOT PATH" << std::endl;
-
-    if (path_to_the_unknown.size() > path_size)
-    {
-        path_to_the_unknown.resize(path_size);
-    }
-
-    // Jerry Additions to save files in correct directory
-    // ---------------------------------------------------------------------------
-    // Specify the file names to copy
     const std::string treeFileName = "tree.csv";
     const std::string startFileName = "start.xyz";
     const std::string endFileName = "end.xyz";
@@ -479,20 +465,25 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
               << std::endl;
 
     // Copy the files to the current directory
-    std::string copyTreeCommand =
-        "cp \"" + treeFileName + "\" \"" + std::string(data_dir) + "/\"";
-    std::string copyStartCommand =
-        "cp \"" + startFileName + "\" \"" + std::string(data_dir) + "/\"";
-    std::string copyEndCommand =
-        "cp \"" + endFileName + "\" \"" + std::string(data_dir) + "/\"";
-    std::string copyPathsCommand =
-        "cp \"" + pathsFileName + "\" \"" + std::string(data_dir) + "/\"";
-    int treeCopyResult = system(copyTreeCommand.c_str());
-    int startCopyResult = system(copyStartCommand.c_str());
-    int endCopyResult = system(copyEndCommand.c_str());
-    int pathsCopyResult = system(copyPathsCommand.c_str());
+    std::string mvTreeCommand =
+        "mv \"" + treeFileName + "\" \"" + std::string(data_dir) + "/" +
+        std::to_string(paths_created) + "_" + treeFileName + "\"";
+    std::string mvStartCommand =
+        "mv \"" + startFileName + "\" \"" + std::string(data_dir) + "/" +
+        std::to_string(paths_created) + "_" + startFileName + "\"";
+    std::string mvEndCommand =
+        "mv \"" + endFileName + "\" \"" + std::string(data_dir) + "/" +
+        std::to_string(paths_created) + "_" + endFileName + "\"";
+    std::string mvPathsCommand =
+        "mv \"" + pathsFileName + "\" \"" + std::string(data_dir) + "/" +
+        std::to_string(paths_created) + "_" + pathsFileName + "\"";
 
-    if (treeCopyResult || startCopyResult || endCopyResult || pathsCopyResult)
+    int treemvResult = system(mvTreeCommand.c_str());
+    int startmvResult = system(mvStartCommand.c_str());
+    int endmvResult = system(mvEndCommand.c_str());
+    int pathsmvResult = system(mvPathsCommand.c_str());
+
+    if (treemvResult || startmvResult || endmvResult || pathsmvResult)
     {
         std::cout << "Files copied successfully!" << std::endl;
     }
@@ -504,6 +495,13 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
     std::cout << "should copied the files" << std::endl;
     // ---------------------------------------------------------------------------
 
+    std::cout << "GOT PATH" << std::endl;
+
+    if (path_to_the_unknown.size() > path_size)
+    {
+        path_to_the_unknown.resize(path_size);
+    }
+
     return path_to_the_unknown;
 }
 
@@ -514,20 +512,16 @@ void Navigator::get_features_by_rotating()
     int current_rotate = 0;
     int multiplier = 1;
 
-    while (current_rotate < (times_rotate + 1))
+    while (current_rotate < (times_rotate))
     {
         ++current_rotate;
 
-        if ((times_rotate + 1 - current_rotate) % 5 == 0)
+        if ((times_rotate - current_rotate) % 5 == 0)
             std::cout << "scan movments left: "
-                      << (times_rotate + 1 - current_rotate) << std::endl;
+                      << (times_rotate - current_rotate) << std::endl;
 
         drone->send_command("rc 0 0 " + std::to_string(multiplier * 18) + " 15",
                             false);
-
-        // drone->send_command("rc 0 " + std::to_string(-10) + " " +
-        //                         std::to_string(multiplier * 18) + " 15",
-        //                     false);
 
         multiplier *= -1;
         std::this_thread::sleep_for(5s);
@@ -565,7 +559,7 @@ void Navigator::get_features_by_rotating()
  * @brief start navigation, initiate
  *
  * @param use_explorer set to true
- * !! only runs once !!
+ * @note !! only runs once !!
  */
 void Navigator::start_navigation(bool use_explorer)
 {
@@ -587,7 +581,6 @@ void Navigator::start_navigation(bool use_explorer)
     else
     {
         get_features_by_rotating();
-        // SLAM->ChangeMapMerging(true);
         end_loop = true;
     }
 
@@ -597,9 +590,7 @@ void Navigator::start_navigation(bool use_explorer)
     }
 
     const auto map_points =
-        SLAM->GetAtlas()
-            ->GetCurrentMap() // TODO: should we take all the maps?
-            ->GetAllMapPoints();
+        SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints();
     const auto [R_align, mu_align] = get_alignment_matrices(map_points);
     this->R_align = R_align;
     this->mu_align = mu_align;

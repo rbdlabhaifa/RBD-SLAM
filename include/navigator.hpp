@@ -125,6 +125,8 @@ class Navigator
               std::vector<cv::Point3f> destinations = {});
     ~Navigator();
 
+    void reset_map_w_context();
+
     void start_navigation(bool use_explorer = true);
 
     /**
