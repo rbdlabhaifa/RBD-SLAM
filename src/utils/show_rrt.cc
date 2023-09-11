@@ -22,6 +22,7 @@
 
 #include "auxilary.hpp"
 #include "explorer.hpp"
+#include "goal_finder.hpp"
 #include "path_builder.hpp"
 
 using namespace Auxilary;
@@ -31,50 +32,57 @@ void visualizer_cloud_and_path(
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, float ScaleFactor,
     std::vector<std::vector<pcl::PointXYZ>> paths
 
-) {
-	std::cout<< " in visualizer" << std:: endl;
+)
+{
+    std::cout << " in visualizer" << std::endl;
     pcl::visualization::PCLVisualizer::Ptr viewer(
         new pcl::visualization::PCLVisualizer("3D Viewer"));
     viewer->setBackgroundColor(0, 0, 0);
     viewer->addPointCloud<pcl::PointXYZ>(cloud, "sample cloud");
-    
-    	std::cout<< " segfault 1" << std:: endl;
+
+    std::cout << " segfault 1" << std::endl;
 
     int index = 0;
-    for (std::size_t i = 0; i < paths.size(); ++i) {
-        for (std::size_t j = 0; j < paths[i].size(); ++j) {
+    for (std::size_t i = 0; i < paths.size(); ++i)
+    {
+        for (std::size_t j = 0; j < paths[i].size(); ++j)
+        {
             std::stringstream ss;
             ss << "PointNavigatePath" << i << j;
             viewer->addSphere(paths[i][j], ScaleFactor, 0.1, 0.2, 0.9,
                               ss.str());
-            if (j > 0) {
-                viewer->addLine(
-                    paths[i][j - 1], paths[i][j], 0.1, 0.2, 0.9,
-                    "arrow" + std::to_string(i) + std::to_string(j));
+            if (j > 0)
+            {
+                viewer->addLine(paths[i][j - 1], paths[i][j], 0.1, 0.2, 0.9,
+                                "arrow" + std::to_string(i) +
+                                    std::to_string(j));
             }
             // index++;
         }
-        
-        std::cout<< " segfault 2" << std:: endl;
 
+        std::cout << " segfault 2" << std::endl;
     }
-    while (!viewer->wasStopped()) {
+    while (!viewer->wasStopped())
+    {
         viewer->spin();
         std::this_thread::sleep_for(5ms);
     }
-    std::cout<< " segfault 3" << std:: endl;
+    std::cout << " segfault 3" << std::endl;
 }
 
-void viewRRTFunction(pcl::visualization::PCLVisualizer::Ptr viewer) {
-	std::cout<< " in view rrt funvtion" << std:: endl;
-    while (!viewer->wasStopped()) {
+void viewRRTFunction(pcl::visualization::PCLVisualizer::Ptr viewer)
+{
+    std::cout << " in view rrt funvtion" << std::endl;
+    while (!viewer->wasStopped())
+    {
         viewer->spinOnce(100);
         std::this_thread::sleep_for(100ms);
     }
 }
-pcl::visualization::PCLVisualizer::Ptr shapesVis(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud) {
-    std::cout<< " in shapesvis" << std:: endl;
+pcl::visualization::PCLVisualizer::Ptr
+shapesVis(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud)
+{
+    std::cout << " in shapesvis" << std::endl;
     pcl::visualization::PCLVisualizer::Ptr viewer(
         new pcl::visualization::PCLVisualizer("3D Viewer"));
     viewer->setBackgroundColor(0, 0, 0);
@@ -84,7 +92,8 @@ pcl::visualization::PCLVisualizer::Ptr shapesVis(
     return (viewer);
 }
 
-int main(int argc, char** argv) {  // TODO : Redo the point Enter !!!
+int main(int argc, char **argv)
+{ // TODO : Redo the point Enter !!!
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(
         new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out(
@@ -95,21 +104,21 @@ int main(int argc, char** argv) {  // TODO : Redo the point Enter !!!
         new pcl::PointCloud<pcl::PointXYZ>);
 
     if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[1], *cloud) ==
-        -1)  //* load the file
+        -1) //* load the file
     {
         PCL_ERROR("Couldn't read file test_pcd.pcd \n");
         return -1;
     }
 
     if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[2], *plane) ==
-        -1)  //* load the file
+        -1) //* load the file
     {
         PCL_ERROR("Couldn't read file test_pcd.pcd \n");
         return -1;
     }
 
     if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[3], *start_point) ==
-        -1)  //* load the file
+        -1) //* load the file
     {
         PCL_ERROR("Couldn't read file test_pcd.pcd \n");
         return -1;
@@ -119,15 +128,40 @@ int main(int argc, char** argv) {  // TODO : Redo the point Enter !!!
 
     Explorer explorer(cloud);
     explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);
-    for (int i = 0; i < 30; ++i) {
-        auto path = explorer.get_points_to_unknown((*start_point)[0]);
-        auto graph = explorer.get_last_graph();
-        std::cout << "GSIZE " << graph.size() << std::endl;
-        visualizer_cloud_and_path(cloud, scale_factor, {path});
-        visualizer_cloud_and_path(cloud, scale_factor, {graph});
 
-        visualizer_cloud_and_path(cloud, scale_factor, explorer.best_paths);
+    auto [k_p1, k_p2, k_p3] = explorer.get_plane_of_flight();
+    Eigen::Vector3d vec_last_loc{(*start_point)[0].x, (*start_point)[0].y,
+                                 (*start_point)[0].z};
+
+    std::vector<std::vector<double>> transformed_vec;
+
+    for (pcl::PointXYZ point : *cloud)
+    {
+        transformed_vec.push_back(
+            std::vector<double>{point.x, point.y, point.z});
     }
 
+    auto goal_exit_point =
+        goal_finder::Find_Goal(transformed_vec, vec_last_loc, k_p1, k_p2, k_p3);
+
+    explorer.exit_point = pcl::PointXYZ(goal_exit_point[0], goal_exit_point[1],
+                                        goal_exit_point[2]);
+
+    auto path = explorer.get_points_to_exit((*start_point)[0]);
+
+    std::cout << std::endl;
+    for (auto point : path)
+        std::cout << point;
+    std::cout << std::endl;
+
+    std::cout << "\n\nstart:" << (*start_point)[0] << std::endl;
+    std::cout << "exit: " << goal_exit_point.transpose() << "\n\n" << std::endl;
+
+    auto graph = explorer.get_last_graph();
+    std::cout << "GSIZE " << graph.size() << std::endl;
+    visualizer_cloud_and_path(cloud, scale_factor, {path});
+    // visualizer_cloud_and_path(cloud, scale_factor, {graph});
+
+    // visualizer_cloud_and_path(cloud, scale_factor, explorer.best_paths);
     return 0;
 }

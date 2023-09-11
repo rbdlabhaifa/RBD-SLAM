@@ -39,7 +39,7 @@ class PathBuilder
      * @param polygons - polygons we use as obstacles for RRT
      * @param RRT_points - all points of RRT
      */
-    void get_navigation_points(
+    bool get_navigation_points(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
         const pcl::PointXYZ &navigate_starting_point,
         const pcl::PointXYZ &known_point1, const pcl::PointXYZ &known_point2,

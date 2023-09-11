@@ -8,8 +8,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_BUILD_TYPE Debug)
+
+# set(CMAKE_BUILD_TYPE Release)
+# set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 add_compile_definitions(USE_UNSTABLE_GEOS_CPP_API)
 
@@ -94,8 +96,8 @@ target_include_directories(map_builder PRIVATE include ${ORB_SLAM3_INCLUDES})
 
 # SHOW RRT
 add_executable(show_rrt src/utils/show_rrt.cc src/explorer.cc)
-target_link_libraries(show_rrt PRIVATE ${PCL_LIBRARIES} path_builder)
 target_include_directories(show_rrt PRIVATE include)
+target_link_libraries(show_rrt PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} path_builder goal_finder pcl_operations eigen_operations Eigen3::Eigen)
 
 # test_runner
 add_executable(test_runner src/utils/test_runner.cc)

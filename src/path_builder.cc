@@ -41,16 +41,11 @@ std::vector<pcl::PointXYZ> PathBuilder::get_path_between_two_nodes(
     const lemon::ListDigraph::Node &end_node)
 {
     std::vector<pcl::PointXYZ> path; // Initialize an empty path vector.
-
-    // Traverse the path from the end node to the root.
     lemon::ListDigraph::Node current_node = end_node;
 
     while (current_node != start_node)
     {
-        // Add the current node's point to the path.
         path.push_back(node_map[current_node]);
-
-        // Find the parent node (predecessor) of the current node.
         for (lemon::ListDigraph::InArcIt it(graph, current_node);
              it != lemon::INVALID; ++it)
         {
@@ -58,18 +53,15 @@ std::vector<pcl::PointXYZ> PathBuilder::get_path_between_two_nodes(
             break; // We assume there's only one parent node.
         }
     }
-
     // Add the start node's point (the root) to the path.
     path.push_back(node_map[start_node]);
-
     // Reverse the order of points to get the path from root to end.
     std::reverse(path.begin(), path.end());
 
     return path;
 }
 
-// TODO: Make this function better, use utility functions
-void PathBuilder::get_navigation_points(
+bool PathBuilder::get_navigation_points(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
     const pcl::PointXYZ &navigate_starting_point,
     const pcl::PointXYZ &known_point1, const pcl::PointXYZ &known_point2,
@@ -81,14 +73,6 @@ void PathBuilder::get_navigation_points(
 {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
-    std::cout << "vector RRT size: " << path_to_the_unknown.size() << std::endl;
-    std::cout << "rrt ponts tree:" << std::endl;
-    for (const auto &node : path_to_the_unknown)
-    {
-        std::cout << "we are here" << std::endl;
-        std::cout << node.x << " " << node.y << " " << node.z << " "
-                  << std::endl;
-    }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr RRT_cloud(
         new pcl::PointCloud<pcl::PointXYZ>);
@@ -109,7 +93,7 @@ void PathBuilder::get_navigation_points(
 
     node_to_point[first_node] = navigate_starting_point;
 
-    float jump = 0.3;
+    float jump = 0.25;
 
     pcl::KdTreeFLANN<pcl::PointXYZ> navigate_tree;
     pcl::PointXYZ plane_mean = (known_point1 + known_point2 + known_point3) / 3;
@@ -118,8 +102,6 @@ void PathBuilder::get_navigation_points(
         known_point1 - plane_mean, known_point2 - plane_mean,
         known_point3 - plane_mean);
     // shershor for the A's to calculate the center
-    std::cout << "starting shershor" << std::endl;
-    // Eigen::Matrix2d A(2,3);
     cv::Mat A;
     A = cv::Mat::zeros(2, 3, CV_32F);
     A.at<float>(0, 0) = span_v1_gs.x;
@@ -128,12 +110,10 @@ void PathBuilder::get_navigation_points(
     A.at<float>(1, 0) = span_v2_gs.x;
     A.at<float>(1, 1) = span_v2_gs.y;
     A.at<float>(1, 2) = span_v2_gs.z;
-    std::cout << "We are building A..." << std::endl;
 
     cv::Mat X = cv::Mat::zeros(1, 3, CV_32F);
     cv::Mat Ainv = cv::Mat::zeros(3, 2, CV_32F);
 
-    std::cout << "We did the inverse matrix A !!!" << std::endl;
     invert(A, Ainv, cv::DECOMP_SVD);
 
     X.at<float>(0, 0) = navigate_starting_point.x;
@@ -141,23 +121,23 @@ void PathBuilder::get_navigation_points(
     X.at<float>(0, 2) = navigate_starting_point.z;
     cv::Mat Center = cv::Mat::zeros(1, 2, CV_32F);
 
-    std::cout << "the A inverse is: " << std::endl;
     Center = X * Ainv;
-    std::cout << "The center is: " << std::endl;
     int rrt_size = 0;
     std::vector<float> Cntr{Center.at<float>(0, 0), Center.at<float>(0, 1),
                             Center.at<float>(0, 2)};
 
     bool stop_rrt = false;
     lemon::ListDigraph::Node goal_node;
+    double min_dist_from_goal = 100;
+
     for (int i = 0; i < rrt_graph_max_size; ++i)
     {
         if (stop_rrt)
         {
             break;
         }
-        float R = ((i / 300) + 0.5) * 1.5;
-        float r = (i / 300) * 1.5;
+        float R = ((i / 700) + 0.5) * 1.2;
+        float r = (i / 700) * 1.2;
         pcl::PointXYZ point_rand =
             get_random_point_on_plane(span_v1_gs, span_v2_gs, Cntr, R, r) +
             plane_mean;
@@ -190,7 +170,14 @@ void PathBuilder::get_navigation_points(
                         node_to_point[new_node] = point_new;
                         RRT_graph.addArc(it, new_node);
                         ++rrt_size;
-                        if (norm(point_new - goal_point) <= threshold)
+                        double dist_from_goal = norm(point_new - goal_point);
+                        if (dist_from_goal < min_dist_from_goal)
+                        {
+                            min_dist_from_goal = dist_from_goal;
+                            std::cout << "min dist from goal:" << dist_from_goal
+                                      << std::endl;
+                        }
+                        if (dist_from_goal <= threshold)
                         {
                             stop_rrt = true;
                             goal_node = new_node;
@@ -207,15 +194,11 @@ void PathBuilder::get_navigation_points(
     }
 
     std::cout << "FINISHED RRT with size: " << rrt_size << std::endl;
+    if (!stop_rrt)
+        return false;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr whole_tree(
         new pcl::PointCloud<pcl::PointXYZ>);
-
-    for (int i = 0; i < rrt_graph_max_size; ++i)
-    {
-    }
-    if (lemon::countNodes(RRT_graph) < 50)
-        return;
 
     path_to_the_unknown = get_path_between_two_nodes(RRT_graph, node_to_point,
                                                      first_node, goal_node);
@@ -230,6 +213,7 @@ void PathBuilder::get_navigation_points(
     {
         RRT_points.push_back(node_to_point[it]);
     }
+    return true;
 }
 
 std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
@@ -243,18 +227,22 @@ std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
     auto cluster_indices = get_clusters(cloud);
     auto convexhulls = get_convexhulls(cloud, cluster_indices);
 
+    float threshold = std::pow(0.18, 2); // taken from navigation
     std::size_t tries = 30;
     while (path_to_exit.empty() && tries-- > 0)
     {
+        std::cout << "Try number: " << 30 - tries << std::endl;
         std::cout << "NOT VALID" << std::endl;
 
         path_to_exit.clear();
         RRT_graph.clear();
 
-        // TODO: change 5.0 - temp
-        get_navigation_points(cloud, start_point, known_point1, known_point2,
-                              known_point3, path_to_exit, RRT_graph,
-                              convexhulls, exit_point, 5.0);
+        bool rrt_finished = get_navigation_points(
+            cloud, start_point, known_point1, known_point2, known_point3,
+            path_to_exit, RRT_graph, convexhulls, exit_point, threshold);
+
+        if (!rrt_finished)
+            continue;
 
         if (tries % 10 == 0)
         {
