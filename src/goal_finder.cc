@@ -148,7 +148,7 @@ std::vector<bool>
 DataProcessor::find_outliers(const std::vector<std::vector<double>> &zscores,
                              double threshold)
 {
-    std::vector<bool> is_outlier(zscores[1].size(), false);
+    std::vector<bool> is_outlier(zscores.size(), false);
 
     for (size_t i = 0; i < zscores.size(); ++i)
     {
@@ -156,7 +156,7 @@ DataProcessor::find_outliers(const std::vector<std::vector<double>> &zscores,
         {
             if (std::abs(zscores[i][j]) > threshold)
             {
-                is_outlier[j] = true;
+                is_outlier[i] = true;
                 break; // Exit the inner loop once an outlier is found for
                        // this data point
             }
@@ -538,6 +538,9 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
     // transpose zscores
     Eigen::MatrixXd transposer =
         EigenOperations::vec_vec2eigen_mat(zscores).transpose();
+
+    std::cout << transposer << std::endl;
+
     zscores = EigenOperations::eigen_mat2vec_vec(transposer);
 
     std::vector<std::vector<double>> cleaned_data =
@@ -573,11 +576,6 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
 
     std::vector<double> avg_distances =
         analyzer.calculate_average_distances(projected_data, drone_position);
-
-    for (int i = 0; i < avg_distances.size(); i += 50)
-    {
-        std::cout << std::to_string(i) << ": " << avg_distances[i] << std::endl;
-    }
 
     std::vector<size_t> nan_indices;
     std::pair<std::vector<double>, std::vector<double>> exit_result =
