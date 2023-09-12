@@ -17,6 +17,13 @@
 
 #include "auxilary.hpp"
 
+std::vector<std::vector<pcl::PointXYZ>> get_all_paths_to_leaves(
+    const lemon::ListDigraph &graph,
+    const lemon::ListDigraph::NodeMap<pcl::PointXYZ> &node_map,
+    const lemon::ListDigraph::Node &start_node);
+
+void saveTree(const std::vector<std::vector<pcl::PointXYZ>> &paths);
+
 class PathBuilder
 {
     const std::size_t how_long_valid_path = 5;

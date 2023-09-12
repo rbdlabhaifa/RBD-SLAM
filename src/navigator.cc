@@ -231,6 +231,7 @@ void Navigator::goto_point(const cv::Point3f &p)
             pose_updated = false;
         }
     }
+    std::cout << "REACHED POINT!" << std::endl;
 
     drone->send_command("rc 0 0 0 0", false);
 }
@@ -392,9 +393,6 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         explorer->exit_point = pcl::PointXYZ(
             goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
         // draw the exit point in pangolin
-        SLAM->get_map_drawer()->Exit_point = Eigen::Matrix<float, 3, 1>{
-            goal_exit_point.x(), goal_exit_point.y(), goal_exit_point.z()};
-        SLAM->get_map_drawer()->set_draw_exit(true);
 
         std::promise<std::vector<pcl::PointXYZ>> path_promise;
         auto path_future = path_promise.get_future();

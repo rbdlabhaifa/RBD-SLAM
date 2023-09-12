@@ -18,6 +18,7 @@
 #include <lemon/path.h>
 #include <memory>
 #include <numeric>
+#include <opencv2/core/hal/interface.h>
 #include <opencv2/core/mat.hpp>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/impl/point_types.hpp>
@@ -33,6 +34,72 @@
 using namespace Auxilary;
 using namespace PCLOperations;
 using namespace EigenOperations;
+
+std::vector<std::vector<pcl::PointXYZ>> get_all_paths_to_leaves(
+    const lemon::ListDigraph &graph,
+    const lemon::ListDigraph::NodeMap<pcl::PointXYZ> &node_map,
+    const lemon::ListDigraph::Node &start_node)
+{
+    std::vector<std::vector<pcl::PointXYZ>> paths;
+
+    std::size_t amount = 0;
+
+    lemon::Dfs<lemon::ListDigraph> dfs(graph);
+    dfs.init();
+    dfs.addSource(start_node);
+    dfs.start();
+
+    std::size_t leaves = 0;
+
+    for (lemon::ListDigraph::NodeIt it(graph); it != lemon::INVALID; ++it)
+    {
+        if (lemon::countOutArcs(graph, it) != 0)
+        {
+            continue;
+        }
+
+        ++leaves;
+
+        std::vector<pcl::PointXYZ> current_path;
+        current_path.insert(current_path.begin(), node_map[it]);
+
+        auto prev = dfs.predNode(it);
+
+        while (prev != lemon::INVALID)
+        {
+            current_path.insert(current_path.begin(), node_map[prev]);
+            prev = dfs.predNode(prev);
+        }
+
+        paths.push_back(current_path);
+    }
+
+    std::cout << leaves << " LEAVES from " << lemon::countNodes(graph)
+              << std::endl;
+
+    return paths;
+}
+
+void saveTree(const std::vector<std::vector<pcl::PointXYZ>> &paths)
+{
+    std::cout << "rrt path points:" << std::endl;
+    std::string filename = "../tree.xyz";
+    std::ofstream file(filename);
+    if (!file.is_open())
+    {
+        std::cerr << "Error opening file: " << filename << std::endl;
+    }
+    for (size_t i = 0; i < paths.size(); ++i)
+    {
+        const auto &cloud = paths[i];
+        for (const auto &point : cloud)
+        {
+            file << point.x << " " << point.y << " " << point.z << std::endl;
+        }
+    }
+    file.close();
+    std::cout << " point cloud saved to : " << filename << std::endl;
+}
 
 std::vector<pcl::PointXYZ> PathBuilder::get_path_between_two_nodes(
     const lemon::ListDigraph &graph,
@@ -111,6 +178,8 @@ bool PathBuilder::get_navigation_points(
     A.at<float>(1, 1) = span_v2_gs.y;
     A.at<float>(1, 2) = span_v2_gs.z;
 
+    cv::Mat A_transpose;
+    cv::transpose(A, A_transpose);
     cv::Mat X = cv::Mat::zeros(1, 3, CV_32F);
     cv::Mat Ainv = cv::Mat::zeros(3, 2, CV_32F);
 
@@ -158,6 +227,19 @@ bool PathBuilder::get_navigation_points(
                                   (std::sqrt((point_rand - close_point) *
                                              (point_rand - close_point)));
 
+            point_new = point_new - plane_mean;
+            cv::Mat cv_point = cv::Mat::zeros(1, 3, CV_32F);
+            cv_point.at<float>(0, 0) = point_new.x;
+            cv_point.at<float>(0, 1) = point_new.y;
+            cv_point.at<float>(0, 2) = point_new.z;
+            cv::Mat A_trans_A = A_transpose * A;
+            cv::Mat ready_point = cv_point * A_trans_A;
+
+            point_new = {ready_point.at<float>(0, 0),
+                         ready_point.at<float>(0, 1),
+                         ready_point.at<float>(0, 2)};
+            point_new = point_new + plane_mean;
+
             if (is_valid_movement(cloud, close_point, point_new, polygons))
             {
                 for (lemon::ListDigraph::NodeIt it(RRT_graph);
@@ -192,6 +274,11 @@ bool PathBuilder::get_navigation_points(
             std::cout << "Cannot find Nearest Node" << std::endl;
         }
     }
+
+    const auto paths =
+        get_all_paths_to_leaves(RRT_graph, node_to_point, first_node);
+
+    saveTree(paths);
 
     std::cout << "FINISHED RRT with size: " << rrt_size << std::endl;
     if (!stop_rrt)

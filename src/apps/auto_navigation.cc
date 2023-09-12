@@ -105,11 +105,10 @@ int main(int argc, char *argv[])
 
     while (true)
     {
-        const auto path = navigator.get_path_to_the_unknown(3);
+        const auto path = navigator.get_path_to_the_unknown(5);
         std::for_each(path.begin(), path.end(),
                       [&](const auto &p)
                       { navigator.goto_point(cv::Point3f(p.x, p.y, p.z)); });
-
         drone->send_command("down 20");
         std::this_thread::sleep_for(2s);
         navigator.reset_map_w_context();

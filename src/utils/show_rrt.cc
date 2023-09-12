@@ -103,28 +103,37 @@ int main(int argc, char **argv)
     pcl::PointCloud<pcl::PointXYZ>::Ptr start_point(
         new pcl::PointCloud<pcl::PointXYZ>);
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[1], *cloud) ==
-        -1) //* load the file
+    // /home/ido/rbd/rbd-slam/RBD-SLAM/scans/12.09.23
+    // 20:33:48/pcd_s/aligned_points.pcd
+
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(
+            "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/12.09.23 "
+            "20:33:48/pcd_s/aligned_points.pcd",
+            *cloud) == -1) //* load the file
     {
         PCL_ERROR("Couldn't read file test_pcd.pcd \n");
         return -1;
     }
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[2], *plane) ==
-        -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(
+            "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/12.09.23 "
+            "20:33:48/pcd_s/plane_points.pcd",
+            *plane) == -1) //* load the file
     {
         PCL_ERROR("Couldn't read file test_pcd.pcd \n");
         return -1;
     }
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(argv[3], *start_point) ==
-        -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(
+            "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/12.09.23 "
+            "20:33:48/pcd_s/1_start.pcd",
+            *start_point) == -1) //* load the file
     {
         PCL_ERROR("Couldn't read file test_pcd.pcd \n");
         return -1;
     }
 
-    const float scale_factor = std::stof(argv[4]);
+    const float scale_factor = std::stof("0.04");
 
     Explorer explorer(cloud);
     explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);
