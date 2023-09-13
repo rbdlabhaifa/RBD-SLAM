@@ -239,6 +239,7 @@ void Navigator::goto_point(const cv::Point3f &p)
 void Navigator::update_plane_of_flight()
 {
     pose_updated = false;
+    drone->send_command("left 50");
     const auto p1 = get_last_location();
     drone->send_command("right 100");
     std::this_thread::sleep_for(5s);
@@ -430,19 +431,20 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         data_dir / ("path" + std::to_string(paths_created) + ".xyz"));
 
     std::vector<pcl::PointXYZ> save_exit = {{
-        goal_exit_point(0),
-        goal_exit_point(1),
-        goal_exit_point(2),
+        static_cast<float>(goal_exit_point(0)),
+        static_cast<float>(goal_exit_point(1)),
+        static_cast<float>(goal_exit_point(2)),
     }};
 
     Auxilary::save_points_to_file(
         save_exit,
         data_dir / ("exit" + std::to_string(paths_created) + ".xyz"));
 
-    const std::string treeFileName = "tree.csv";
+    const std::string treeFileName = "tree.xyz";
     const std::string startFileName = "start.xyz";
     const std::string endFileName = "end.xyz";
     const std::string pathsFileName = "paths.csv";
+    const std::string initial_path_NAME = "initial_path.xyz";
 
     // Get the current directory
     char currentDir[FILENAME_MAX];
@@ -475,13 +477,18 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
     std::string mvPathsCommand =
         "mv \"" + pathsFileName + "\" \"" + std::string(data_dir) + "/" +
         std::to_string(paths_created) + "_" + pathsFileName + "\"";
+    std::string mvInitialPathsCommand =
+        "mv \"" + initial_path_NAME + "\" \"" + std::string(data_dir) + "/" +
+        std::to_string(paths_created) + "_" + initial_path_NAME + "\"";
 
     int treemvResult = system(mvTreeCommand.c_str());
     int startmvResult = system(mvStartCommand.c_str());
     int endmvResult = system(mvEndCommand.c_str());
     int pathsmvResult = system(mvPathsCommand.c_str());
+    int initialPathsmvResult = system(mvInitialPathsCommand.c_str());
 
-    if (treemvResult || startmvResult || endmvResult || pathsmvResult)
+    if (treemvResult || startmvResult || endmvResult || pathsmvResult ||
+        initialPathsmvResult)
     {
         std::cout << "Files copied successfully!" << std::endl;
     }

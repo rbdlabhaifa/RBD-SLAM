@@ -45,7 +45,7 @@ def clean_data(data_points, zscore_threshold=3):
 
 def main():
     # Load the .xyz file
-    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/12.09.23 20:33:48"
+    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/13.09.23/11:03:08"
 
     fig_data = []
 
@@ -69,10 +69,13 @@ def main():
         fig_data.append(clean_map)
 
     # fig_data.append(path_to_go_lay(path.join(scan_dir, "aligned_points.xyz"), 2, "map"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "1_start.xyz"), 4, "start"))
+    fig_data.append(path_to_go_lay(path.join(scan_dir, "start.xyz"), 4, "start"))
     fig_data.append(path_to_go_lay(path.join(scan_dir, "exit1.xyz"), 4, "exit"))
     fig_data.append(path_to_go_lay(path.join(scan_dir, "1_end.xyz"), 4, "end"))
     fig_data.append(path_to_go_lay(path.join(scan_dir, "path1.xyz"), 4, "path"))
+    fig_data.append(
+        path_to_go_lay(path.join(scan_dir, "initial_path.xyz"), 4, "initial path")
+    )
     fig_data.append(
         path_to_go_lay(path.join(scan_dir, "plane_points.xyz"), 4, "plane points")
     )

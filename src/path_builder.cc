@@ -83,7 +83,7 @@ std::vector<std::vector<pcl::PointXYZ>> get_all_paths_to_leaves(
 void saveTree(const std::vector<std::vector<pcl::PointXYZ>> &paths)
 {
     std::cout << "rrt path points:" << std::endl;
-    std::string filename = "../tree.xyz";
+    std::string filename = "tree.xyz";
     std::ofstream file(filename);
     if (!file.is_open())
     {
@@ -130,7 +130,6 @@ std::vector<pcl::PointXYZ> PathBuilder::get_path_between_two_nodes(
 
 bool PathBuilder::get_navigation_points(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
-    const pcl::PointXYZ &navigate_starting_point,
     const pcl::PointXYZ &known_point1, const pcl::PointXYZ &known_point2,
     const pcl::PointXYZ &known_point3,
     std::vector<pcl::PointXYZ> &path_to_the_unknown,
@@ -150,15 +149,14 @@ bool PathBuilder::get_navigation_points(
     pcl::PointCloud<pcl::PointXYZ>::Ptr navigate_data(
         new pcl::PointCloud<pcl::PointXYZ>);
 
-    navigate_data->push_back(navigate_starting_point);
+    navigate_data->push_back(known_point3);
     lemon::ListDigraph::Node first_node = RRT_graph.addNode();
     auto map_filename = "start.xyz";
     cv::Point3f navigateCv =
-        cv::Point3f(navigate_starting_point.x, navigate_starting_point.y,
-                    navigate_starting_point.z);
+        cv::Point3f(known_point3.x, known_point3.y, known_point3.z);
     Auxilary::save_points_to_file({navigateCv}, map_filename);
 
-    node_to_point[first_node] = navigate_starting_point;
+    node_to_point[first_node] = known_point3;
 
     float jump = 0.3;
 
@@ -185,9 +183,9 @@ bool PathBuilder::get_navigation_points(
 
     invert(A, Ainv, cv::DECOMP_SVD);
 
-    X.at<float>(0, 0) = navigate_starting_point.x;
-    X.at<float>(0, 1) = navigate_starting_point.y;
-    X.at<float>(0, 2) = navigate_starting_point.z;
+    X.at<float>(0, 0) = known_point3.x;
+    X.at<float>(0, 1) = known_point3.y;
+    X.at<float>(0, 2) = known_point3.z;
     cv::Mat Center = cv::Mat::zeros(1, 2, CV_32F);
 
     Center = X * Ainv;
@@ -290,6 +288,8 @@ bool PathBuilder::get_navigation_points(
     auto initial_path = get_path_between_two_nodes(RRT_graph, node_to_point,
                                                    first_node, goal_node);
 
+    save_points_to_file(initial_path, "initial_path.xyz");
+
     auto end_point = "end.xyz";
     cv::Point3f end_pointCV = cv::Point3f(
         initial_path.back().x, initial_path.back().y, initial_path.back().z);
@@ -353,8 +353,8 @@ std::vector<pcl::PointXYZ> PathBuilder::build_path_to_exit(
         RRT_graph.clear();
 
         bool rrt_finished = get_navigation_points(
-            cloud, start_point, known_point1, known_point2, known_point3,
-            path_to_exit, RRT_graph, convexhulls, exit_point, threshold);
+            cloud, known_point1, known_point2, known_point3, path_to_exit,
+            RRT_graph, convexhulls, exit_point, threshold);
 
         if (!rrt_finished)
             continue;

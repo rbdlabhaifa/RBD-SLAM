@@ -31,7 +31,7 @@ create_new_directory_named_current_time(std::string from_dir = "")
     char buffer[20]; // Buffer to store the formatted time
 
     // Format the time as "DD/MM/YY hh:mm:ss"
-    std::strftime(buffer, sizeof(buffer), "%d.%m.%y %H:%M:%S", &time_info);
+    std::strftime(buffer, sizeof(buffer), "%d.%m.%y/%H:%M:%S", &time_info);
 
     std::string current_time(buffer);
     std::filesystem::path directory_named_time = from_dir + current_time;
