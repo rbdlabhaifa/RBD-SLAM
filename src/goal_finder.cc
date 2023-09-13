@@ -522,6 +522,7 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
         A << span_v1_gs.x, span_v1_gs.y, span_v1_gs.z, span_v2_gs.x,
             span_v2_gs.y, span_v2_gs.z;
     };
+    std::cout << "4" << std::endl;
 
     DataProcessor processor;
     DataAnalyzer analyzer;
@@ -529,6 +530,7 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
     // DEBUG CLEAN DATA
     std::vector<std::vector<double>> zscores =
         processor.calculate_zscores(map_points);
+    std::cout << "5" << std::endl;
 
     // transpose zscores
     Eigen::MatrixXd transposer =

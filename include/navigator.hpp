@@ -98,7 +98,7 @@ class Navigator
      * @brief Rotate the drone until it's relocalized
      */
     void rotate_to_relocalize();
-    void rotate_to_destination_angle(const cv::Point3f &location,
+    bool rotate_to_destination_angle(const cv::Point3f &location,
                                      const cv::Point3f &destination);
 
     // NOTE: This function is not used at the moment (and pretty deprecated),

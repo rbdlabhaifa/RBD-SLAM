@@ -106,7 +106,7 @@ int main(int argc, char **argv)
     // /home/ido/rbd/rbd-slam/RBD-SLAM/scans/12.09.23
     // 20:33:48/pcd_s/aligned_points.pcd
     std::string base_dir =
-        "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/13.09.23/11:03:08/pcd_s";
+        "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/13.09.23/14:19:16/pcd_s";
 
     if (pcl::io::loadPCDFile<pcl::PointXYZ>(base_dir + "/aligned_points.pcd",
                                             *cloud) == -1) //* load the file

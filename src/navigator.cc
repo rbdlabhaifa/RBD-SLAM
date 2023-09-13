@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "Converter.h"
+#include "Map.h"
 #include "System.h"
 #include "Tracking.h"
 #include "Viewer.h"
@@ -139,9 +140,10 @@ void Navigator::rotate_to_relocalize()
     }
 }
 
-void Navigator::rotate_to_destination_angle(const cv::Point3f &location,
+bool Navigator::rotate_to_destination_angle(const cv::Point3f &location,
                                             const cv::Point3f &destination)
 {
+    bool at_right_angle = false;
     // Get angle from Rwc
     cv::Point3f angles = rotation_matrix_to_euler_angles(Rwc);
     float angle1 = angles.z + 90;
@@ -156,7 +158,37 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f &location,
     while (ang_diff <= -180)
         ang_diff += 360;
 
-    if (abs(ang_diff) > 8)
+    if (abs(ang_diff) < 8)
+        return true;
+
+    if (abs(ang_diff) > 30)
+    {
+        drone->send_command("rc 0 0 0 0", false);
+        std::this_thread::sleep_for(1s);
+
+        if (ang_diff > 0)
+        {
+            drone->send_command("rc 0 0 18 15", false);
+            std::this_thread::sleep_for(4s);
+            drone->send_command("rc 0 0 -18 15", false);
+            std::this_thread::sleep_for(4s);
+            drone->send_command("rc 0 0 0 0", false);
+            std::this_thread::sleep_for(1s);
+        }
+        else
+        {
+            drone->send_command("rc 0 0 18 -15", false);
+            std::this_thread::sleep_for(4s);
+            drone->send_command("rc 0 0 -18 -15", false);
+            std::this_thread::sleep_for(4s);
+            drone->send_command("rc 0 0 0 0", false);
+            std::this_thread::sleep_for(1s);
+        }
+        pose_updated = false;
+        return false;
+    }
+
+    else
     {
         drone->send_command("rc 0 0 0 0", false);
         std::this_thread::sleep_for(1s);
@@ -171,11 +203,8 @@ void Navigator::rotate_to_destination_angle(const cv::Point3f &location,
             drone->send_command(
                 "ccw " + std::to_string(static_cast<int>(-ang_diff) + 2));
         }
-        std::this_thread::sleep_for(2s);
-        if (abs(ang_diff) > 100)
-            std::this_thread::sleep_for(2s);
-
         pose_updated = false;
+        return false;
     }
 }
 
@@ -221,7 +250,8 @@ void Navigator::goto_point(const cv::Point3f &p)
     while (get_distance_to_destination(last_location = get_last_location(), p) >
            std::pow(0.15, 2))
     {
-        rotate_to_destination_angle(last_location, p);
+        if (!rotate_to_destination_angle(last_location, p))
+            continue;
 
         std::this_thread::sleep_for(2s);
         if (pose_updated)
@@ -238,8 +268,9 @@ void Navigator::goto_point(const cv::Point3f &p)
 
 void Navigator::update_plane_of_flight()
 {
+    drone->send_command("left 100");
+    std::this_thread::sleep_for(5s);
     pose_updated = false;
-    drone->send_command("left 50");
     const auto p1 = get_last_location();
     drone->send_command("right 100");
     std::this_thread::sleep_for(5s);
@@ -251,6 +282,9 @@ void Navigator::update_plane_of_flight()
     const auto p3 = get_last_location();
     pose_updated = false;
 
+    drone->send_command("speed 10");
+    std::this_thread::sleep_for(2s);
+
     Auxilary::save_points_to_file(std::vector<cv::Point3f>{p1, p2, p3},
                                   data_dir / "plane_points.xyz");
 
@@ -258,40 +292,6 @@ void Navigator::update_plane_of_flight()
                                   pcl::PointXYZ(p2.x, p2.y, p2.z),
                                   pcl::PointXYZ(p3.x, p3.y, p3.z));
 }
-
-/* -------------------------------------------------------------------------- */
-/*                                  UNUSED!!!                                 */
-/* -------------------------------------------------------------------------- */
-/* bool Navigator::goto_the_unknown()
-{
-    if (!explorer->is_set_plane_of_flight())
-        update_plane_of_flight();
-
-    cv::Point3f last_location = get_last_location();
-    const std::vector<pcl::PointXYZ> path_to_the_unknown =
-        explorer->get_points_to_unknown(
-            pcl::PointXYZ(last_location.x, last_location.y,
-            last_location.z));
-
-    if (path_to_the_unknown.size() < 10)
-        return false;
-
-    Auxilary::save_points_to_file(
-        path_to_the_unknown,
-        data_dir / ("path" + std::to_string(++paths_created) + ".xyz"));
-
-    std::for_each(path_to_the_unknown.begin(), path_to_the_unknown.end(),
-                  [&](const auto &p)
-                  { destinations.emplace_back(p.x, p.y, p.z); });
-
-    while (goto_next_destination())
-    {
-        std::cout << "Reached a point in the path to the unknown!" <<
-        std::endl;
-    }
-
-    return true;
-} */
 
 void Navigator::get_point_of_interest(
     const std::vector<Eigen::Matrix<double, 3, 1>> &points,
@@ -349,12 +349,15 @@ void Navigator::reset_map_w_context()
 {
     std::vector<ORB_SLAM3::MapPoint *> tracked_points =
         SLAM->GetTrackedMapPoints();
-    SLAM->GetAtlas()->GetCurrentMap()->clear();
+    ORB_SLAM3::Map *current_map = SLAM->GetAtlas()->GetCurrentMap();
+    for (auto point : SLAM->GetAtlas()->GetAllMapPoints())
+    {
+        current_map->EraseMapPoint(point);
+    }
 
-    ORB_SLAM3::Map *current_slam_map = SLAM->GetAtlas()->GetCurrentMap();
     for (ORB_SLAM3::MapPoint *map_point : tracked_points)
     {
-        current_slam_map->AddMapPoint(map_point);
+        current_map->AddMapPoint(map_point);
     }
 }
 
@@ -383,16 +386,22 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         std::vector<std::vector<double>> transformed_vec =
             EigenOperations::vec_eigen_mat2vec_vec(aligned_points);
 
+        std::cout << "1" << std::endl;
+
         Eigen::Vector3d vec_last_loc{last_location.x, last_location.y,
                                      last_location.z};
+        std::cout << "2" << std::endl;
 
         // set known points
         auto [k_p1, k_p2, k_p3] = explorer->get_plane_of_flight();
+        std::cout << "3" << std::endl;
 
         goal_exit_point = goal_finder::Find_Goal(transformed_vec, vec_last_loc,
                                                  k_p1, k_p2, k_p3);
-        explorer->exit_point = pcl::PointXYZ(
-            goal_exit_point[0], goal_exit_point[1], goal_exit_point[2]);
+        explorer->exit_point =
+            pcl::PointXYZ(static_cast<float>(goal_exit_point[0]),
+                          static_cast<float>(goal_exit_point[1]),
+                          static_cast<float>(goal_exit_point[2]));
         // draw the exit point in pangolin
 
         std::promise<std::vector<pcl::PointXYZ>> path_promise;
@@ -514,6 +523,7 @@ void Navigator::get_features_by_rotating()
 {
     const int degrees_to_rotate = 30;
     const int times_rotate = 360 / degrees_to_rotate;
+    // const int times_rotate = 1;
     int current_rotate = 0;
     int multiplier = 1;
 

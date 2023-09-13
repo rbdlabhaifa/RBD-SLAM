@@ -45,7 +45,7 @@ def clean_data(data_points, zscore_threshold=3):
 
 def main():
     # Load the .xyz file
-    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/13.09.23/11:03:08"
+    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/13.09.23/19:54:10"
 
     fig_data = []
 
@@ -68,23 +68,46 @@ def main():
         )
         fig_data.append(clean_map)
 
-    # fig_data.append(path_to_go_lay(path.join(scan_dir, "aligned_points.xyz"), 2, "map"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "start.xyz"), 4, "start"))
+    if True:
+        x_m, y_m, z_m = read_xyz(path.join(scan_dir, "map_for_path2.xyz"))
+        d_map = np.array([x_m[:], y_m[:], z_m[:]]).transpose()
+        c_map = clean_data(d_map)
+
+        x_c = c_map[:, 0]
+        y_c = c_map[:, 1]
+        z_c = c_map[:, 2]
+
+        clean_map = go.Scatter3d(
+            name="map",
+            x=x_c,
+            y=y_c,
+            z=z_c,
+            mode="markers",
+            marker=dict(size=2),  # Adjust the size of the points as needed
+        )
+        fig_data.append(clean_map)
+
+    # fig_data.append(path_to_go_lay(path.join(scan_dir, "map_for_path2.xyz"), 2, "map"))
+    fig_data.append(path_to_go_lay(path.join(scan_dir, "1_start.xyz"), 4, "start"))
     fig_data.append(path_to_go_lay(path.join(scan_dir, "exit1.xyz"), 4, "exit"))
     fig_data.append(path_to_go_lay(path.join(scan_dir, "1_end.xyz"), 4, "end"))
     fig_data.append(path_to_go_lay(path.join(scan_dir, "path1.xyz"), 4, "path"))
     fig_data.append(
-        path_to_go_lay(path.join(scan_dir, "initial_path.xyz"), 4, "initial path")
+        path_to_go_lay(path.join(scan_dir, "1_initial_path.xyz"), 4, "initial path")
     )
     fig_data.append(
         path_to_go_lay(path.join(scan_dir, "plane_points.xyz"), 4, "plane points")
     )
 
-    fig_data.append(
-        path_to_go_lay(path.join(scan_dir, "tree.xyz"), 2, "sparse plane points")
-    )
+    fig_data.append(path_to_go_lay(path.join(scan_dir, "exit2.xyz"), 4, "exit"))
+    fig_data.append(path_to_go_lay(path.join(scan_dir, "2_end.xyz"), 4, "end"))
+    fig_data.append(path_to_go_lay(path.join(scan_dir, "path2.xyz"), 4, "path"))
 
-    if True:
+    # fig_data.append(
+    #     path_to_go_lay(path.join(scan_dir, "1_tree.xyz"), 2, "sparse plane points")
+    # )
+
+    if False:
         x, y, z = read_xyz(path.join(scan_dir, "plane_points.xyz"))
 
         point1 = np.array([x[1 - 1], y[1 - 1], z[1 - 1]])

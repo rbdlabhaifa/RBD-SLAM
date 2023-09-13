@@ -299,7 +299,6 @@ bool PathBuilder::get_navigation_points(
 
     std::vector<pcl::PointXYZ> refined_path;
     int current = 0;
-    refined_path.push_back(initial_path[current]);
     for (int i = static_cast<int>(initial_path.size() - 1); i > current; i--)
     {
         if (is_valid_movement(cloud, initial_path[current], initial_path[i],
@@ -312,10 +311,9 @@ bool PathBuilder::get_navigation_points(
     }
 
     // add goal point if last was dropped
-    if (norm(goal_point - refined_path[0]) > 0.75)
+    if (norm(goal_point - refined_path[0]) > 2)
         refined_path.push_back(goal_point);
 
-    std::reverse(refined_path.begin(), refined_path.end());
     path_to_the_unknown = refined_path;
 
     std::cout << "\nrefined path - from " << initial_path.size() << " to "
