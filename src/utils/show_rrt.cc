@@ -130,7 +130,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    const float scale_factor = std::stof("0.02");
+    const float scale_factor = std::stof("0.03");
 
     Explorer explorer(cloud);
     explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 
     std::cout << "\n\nstart:" << (*start_point)[0] << std::endl;
     std::cout << "exit: " << goal_exit_point.transpose() << "\n\n" << std::endl;
-
+    save_points_to_file(path, "path1.xyz");
     auto graph = explorer.get_last_graph();
     std::cout << "GSIZE " << graph.size() << std::endl;
     visualizer_cloud_and_path(cloud, scale_factor, {path});

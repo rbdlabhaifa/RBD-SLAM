@@ -300,7 +300,7 @@ bool PathBuilder::get_navigation_points(
     std::vector<pcl::PointXYZ> refined_path;
     int current = 0;
     refined_path.push_back(initial_path[current]);
-    for (int i = static_cast<int>(initial_path.size()); i > current; i--)
+    for (int i = static_cast<int>(initial_path.size() - 1); i > current; i--)
     {
         if (is_valid_movement(cloud, initial_path[current], initial_path[i],
                               polygons))
