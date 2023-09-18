@@ -48,6 +48,7 @@ class PathBuilder
      */
     bool get_navigation_points(
         pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud,
+        const pcl::PointXYZ &navigate_starting_point,
         const pcl::PointXYZ &known_point1, const pcl::PointXYZ &known_point2,
         const pcl::PointXYZ &known_point3,
         std::vector<pcl::PointXYZ> &path_to_the_unknown,
