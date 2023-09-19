@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     Eigen::Vector3d start_pos{start_p.x, start_p.y, start_p.z};
 
     Eigen::Vector3d exit = goal_finder::Find_Goal(
-        vec_map, start_pos, (*plane)[0], (*plane)[1], (*plane)[2]);
+        vec_map, start_pos, (*plane)[0], (*plane)[1], (*plane)[2], 1.5);
 
     std::cout << "EXIT: " << exit << std::endl;
 

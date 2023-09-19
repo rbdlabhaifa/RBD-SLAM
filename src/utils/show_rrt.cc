@@ -147,8 +147,8 @@ int main(int argc, char **argv)
             std::vector<double>{point.x, point.y, point.z});
     }
 
-    auto goal_exit_point =
-        goal_finder::Find_Goal(transformed_vec, vec_last_loc, k_p1, k_p2, k_p3);
+    auto goal_exit_point = goal_finder::Find_Goal(transformed_vec, vec_last_loc,
+                                                  k_p1, k_p2, k_p3, 1.5);
 
     explorer.exit_point = pcl::PointXYZ(goal_exit_point[0], goal_exit_point[1],
                                         goal_exit_point[2]);

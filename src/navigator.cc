@@ -350,18 +350,14 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         std::vector<std::vector<double>> transformed_vec =
             EigenOperations::vec_eigen_mat2vec_vec(aligned_points);
 
-        std::cout << "1" << std::endl;
-
         Eigen::Vector3d vec_last_loc{last_location.x, last_location.y,
                                      last_location.z};
-        std::cout << "2" << std::endl;
-
         // set known points
         auto [k_p1, k_p2, k_p3] = explorer->get_plane_of_flight();
-        std::cout << "3" << std::endl;
+        float used_scalar = (scan_num == 0) ? dist_scalar_0 : dist_scalar_1;
 
         goal_exit_point = goal_finder::Find_Goal(transformed_vec, vec_last_loc,
-                                                 k_p1, k_p2, k_p3);
+                                                 k_p1, k_p2, k_p3, used_scalar);
         explorer->exit_point =
             pcl::PointXYZ(static_cast<float>(goal_exit_point[0]),
                           static_cast<float>(goal_exit_point[1]),
@@ -389,6 +385,7 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
         get_path_to_unknown.join();
         counter++;
     }
+    scan_num++;
 
     Auxilary::save_points_to_file(
         path_to_the_unknown,

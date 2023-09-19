@@ -421,7 +421,8 @@ std::vector<double> DataAnalyzer::calculate_average_distances(
 std::pair<std::vector<double>, std::vector<double>>
 DataAnalyzer::find_exit(const std::vector<std::vector<double>> &datapoints,
                         const std::vector<double> &drone_pos,
-                        const std::vector<double> &avg_distances)
+                        const std::vector<double> &avg_distances,
+                        const float &dist_scalar)
 {
     size_t num_angles = avg_distances.size();
     std::vector<double> angles(num_angles);
@@ -489,8 +490,10 @@ DataAnalyzer::find_exit(const std::vector<std::vector<double>> &datapoints,
     }
     mean_distance /= datapoints.size();
 
-    double exit_x = drone_pos[0] + std::cos(exit_angle) * 1.5 * mean_distance;
-    double exit_y = drone_pos[1] + std::sin(exit_angle) * 1.5 * mean_distance;
+    double exit_x =
+        drone_pos[0] + std::cos(exit_angle) * dist_scalar * mean_distance;
+    double exit_y =
+        drone_pos[1] + std::sin(exit_angle) * dist_scalar * mean_distance;
     std::vector<double> exit_point = {exit_x, exit_y};
     std::vector<double> exit_angles = {exit_angle};
 
@@ -506,7 +509,7 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
                           Eigen::Vector3d starting_pos,
                           pcl::PointXYZ &known_point1,
                           pcl::PointXYZ &known_point2,
-                          pcl::PointXYZ &known_point3)
+                          pcl::PointXYZ &known_point3, const float &dist_scalar)
 {
     // calculate A
     Eigen::Matrix<double, 2, 3> A;
@@ -522,7 +525,6 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
         A << span_v1_gs.x, span_v1_gs.y, span_v1_gs.z, span_v2_gs.x,
             span_v2_gs.y, span_v2_gs.z;
     };
-    std::cout << "4" << std::endl;
 
     DataProcessor processor;
     DataAnalyzer analyzer;
@@ -530,7 +532,6 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
     // DEBUG CLEAN DATA
     std::vector<std::vector<double>> zscores =
         processor.calculate_zscores(map_points);
-    std::cout << "5" << std::endl;
 
     // transpose zscores
     Eigen::MatrixXd transposer =
@@ -574,7 +575,8 @@ Eigen::Vector3d Find_Goal(std::vector<std::vector<double>> map_points,
 
     std::vector<size_t> nan_indices;
     std::pair<std::vector<double>, std::vector<double>> exit_result =
-        analyzer.find_exit(projected_data, drone_position, avg_distances);
+        analyzer.find_exit(projected_data, drone_position, avg_distances,
+                           dist_scalar);
     Eigen::Matrix<double, 1, 2> ret_mat;
     ret_mat << exit_result.first[0], exit_result.first[1];
 
@@ -626,7 +628,8 @@ int main_example()
                                                  drone_position);
         std::vector<size_t> nan_indices;
         std::pair<std::vector<double>, std::vector<double>> exit_result =
-            analyzer.find_exit(projected_data, drone_position, avg_distances);
+            analyzer.find_exit(projected_data, drone_position, avg_distances,
+                               5);
         std::vector<double> exit_point = exit_result.first;
         std::vector<double> exit_angle = exit_result.second;
         // Access the exit point and exit angle
