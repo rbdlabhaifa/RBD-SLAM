@@ -61,9 +61,9 @@ int main(int argc, char **argv)
 
     std::vector<pcl::PointXYZ> save;
     pcl::PointXYZ s_p{
-        exit.x(),
-        exit.y(),
-        exit.z(),
+        static_cast<float>(exit.x()),
+        static_cast<float>(exit.y()),
+        static_cast<float>(exit.z()),
     };
     save.push_back(s_p);
 

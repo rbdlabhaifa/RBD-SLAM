@@ -101,12 +101,9 @@ class Navigator
     bool rotate_to_destination_angle(const cv::Point3f &location,
                                      const cv::Point3f &destination);
 
-    // NOTE: This function is not used at the moment (and pretty deprecated),
-    // delete?
-    static void get_point_of_interest(
-        const std::vector<Eigen::Matrix<double, 3, 1>> &points,
-        std::promise<pcl::PointXYZ> pof_promise, std::size_t last_point,
-        const cv::Point3f &last_location);
+    int scan_num = 0;
+    const float dist_scalar_0 = 1.58;
+    const float dist_scalar_1 = 1.4;
 
   public:
     std::shared_ptr<Explorer> explorer;

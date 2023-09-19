@@ -1,6 +1,6 @@
 import plotly.graph_objs as go
 import numpy as np
-from os import path
+from os.path import join as pj
 from scipy import stats
 
 
@@ -19,7 +19,7 @@ def read_xyz(file_path: str):
     return x, y, z
 
 
-def path_to_go_lay(file_path: str, size: int, name: str):
+def path_to_graph_lay(file_path: str, size: int, name: str):
     x_m, y_m, z_m = read_xyz(file_path)
     return go.Scatter3d(
         name=name,
@@ -28,6 +28,20 @@ def path_to_go_lay(file_path: str, size: int, name: str):
         z=z_m,
         mode="markers",
         marker=dict(size=size),  # Adjust the size of the points as needed
+    )
+
+
+def draw_path_lines(file_path: str, line_name: str):
+    x_p, y_p, z_p = read_xyz(file_path)
+
+    return go.Scatter3d(
+        x=x_p,
+        y=y_p,
+        z=z_p,
+        mode="lines+markers",
+        marker=dict(size=4),
+        line=dict(width=3),
+        name=line_name,
     )
 
 
@@ -44,71 +58,79 @@ def clean_data(data_points, zscore_threshold=3):
 
 
 def main():
-    # Load the .xyz file
-    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/13.09.23/19:54:10"
-
+    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/19.09.23/19:55:10"
     fig_data = []
 
-    if True:
-        x_m, y_m, z_m = read_xyz(path.join(scan_dir, "map_for_path1.xyz"))
-        d_map = np.array([x_m[:], y_m[:], z_m[:]]).transpose()
-        c_map = clean_data(d_map)
-
-        x_c = c_map[:, 0]
-        y_c = c_map[:, 1]
-        z_c = c_map[:, 2]
-
-        clean_map = go.Scatter3d(
-            name="map",
-            x=x_c,
-            y=y_c,
-            z=z_c,
-            mode="markers",
-            marker=dict(size=2),  # Adjust the size of the points as needed
+    scan_1 = True
+    clean_map_1 = False
+    scan_2 = True
+    clean_map_2 = True
+    present_plane = False
+    initial_path_1 = True
+    if scan_1:
+        # fig_data.append(path_to_graph_lay(pj(scan_dir, "map_for_path2.xyz"), 2, "map"))
+        fig_data.append(path_to_graph_lay(pj(scan_dir, "1_start.xyz"), 4, "start 1"))
+        fig_data.append(path_to_graph_lay(pj(scan_dir, "exit1.xyz"), 4, "exit 1"))
+        fig_data.append(path_to_graph_lay(pj(scan_dir, "1_end.xyz"), 4, "end 1"))
+        fig_data.append(draw_path_lines(pj(scan_dir, "path1.xyz"), "path 1"))
+        fig_data.append(
+            path_to_graph_lay(pj(scan_dir, "plane_points.xyz"), 4, "plane points")
         )
-        fig_data.append(clean_map)
+        if initial_path_1:
+            fig_data.append(
+                draw_path_lines(pj(scan_dir, "1_initial_path.xyz"), "initial path 1")
+            )
 
-    if True:
-        x_m, y_m, z_m = read_xyz(path.join(scan_dir, "map_for_path2.xyz"))
-        d_map = np.array([x_m[:], y_m[:], z_m[:]]).transpose()
-        c_map = clean_data(d_map)
-
-        x_c = c_map[:, 0]
-        y_c = c_map[:, 1]
-        z_c = c_map[:, 2]
-
-        clean_map = go.Scatter3d(
-            name="map",
-            x=x_c,
-            y=y_c,
-            z=z_c,
-            mode="markers",
-            marker=dict(size=2),  # Adjust the size of the points as needed
-        )
-        fig_data.append(clean_map)
-
-    # fig_data.append(path_to_go_lay(path.join(scan_dir, "map_for_path2.xyz"), 2, "map"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "1_start.xyz"), 4, "start"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "exit1.xyz"), 4, "exit"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "1_end.xyz"), 4, "end"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "path1.xyz"), 4, "path"))
-    fig_data.append(
-        path_to_go_lay(path.join(scan_dir, "1_initial_path.xyz"), 4, "initial path")
-    )
-    fig_data.append(
-        path_to_go_lay(path.join(scan_dir, "plane_points.xyz"), 4, "plane points")
-    )
-
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "exit2.xyz"), 4, "exit"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "2_end.xyz"), 4, "end"))
-    fig_data.append(path_to_go_lay(path.join(scan_dir, "path2.xyz"), 4, "path"))
+    if scan_2:
+        fig_data.append(path_to_graph_lay(pj(scan_dir, "2_start.xyz"), 4, "start 2"))
+        fig_data.append(path_to_graph_lay(pj(scan_dir, "exit2.xyz"), 4, "exit 2"))
+        fig_data.append(path_to_graph_lay(pj(scan_dir, "2_end.xyz"), 4, "end 2"))
+        fig_data.append(draw_path_lines(pj(scan_dir, "path2.xyz"), "path 2"))
 
     # fig_data.append(
-    #     path_to_go_lay(path.join(scan_dir, "1_tree.xyz"), 2, "sparse plane points")
+    #     path_to_graph_lay(pj(scan_dir, "1_tree.xyz"), 2, "sparse plane points")
     # )
 
-    if False:
-        x, y, z = read_xyz(path.join(scan_dir, "plane_points.xyz"))
+    if clean_map_1:
+        x_m, y_m, z_m = read_xyz(pj(scan_dir, "map_for_path1.xyz"))
+        d_map = np.array([x_m[:], y_m[:], z_m[:]]).transpose()
+        c_map = clean_data(d_map)
+
+        x_c = c_map[:, 0]
+        y_c = c_map[:, 1]
+        z_c = c_map[:, 2]
+
+        clean_map = go.Scatter3d(
+            name="map",
+            x=x_c,
+            y=y_c,
+            z=z_c,
+            mode="markers",
+            marker=dict(size=2),  # Adjust the size of the points as needed
+        )
+        fig_data.append(clean_map)
+
+    if clean_map_2:
+        x_m, y_m, z_m = read_xyz(pj(scan_dir, "map_for_path2.xyz"))
+        d_map = np.array([x_m[:], y_m[:], z_m[:]]).transpose()
+        c_map = clean_data(d_map)
+
+        x_c = c_map[:, 0]
+        y_c = c_map[:, 1]
+        z_c = c_map[:, 2]
+
+        clean_map = go.Scatter3d(
+            name="map",
+            x=x_c,
+            y=y_c,
+            z=z_c,
+            mode="markers",
+            marker=dict(size=2),  # Adjust the size of the points as needed
+        )
+        fig_data.append(clean_map)
+
+    if present_plane:
+        x, y, z = read_xyz(pj(scan_dir, "plane_points.xyz"))
 
         point1 = np.array([x[1 - 1], y[1 - 1], z[1 - 1]])
         point2 = np.array([x[2 - 1], y[2 - 1], z[2 - 1]])

@@ -143,7 +143,6 @@ void Navigator::rotate_to_relocalize()
 bool Navigator::rotate_to_destination_angle(const cv::Point3f &location,
                                             const cv::Point3f &destination)
 {
-    bool at_right_angle = false;
     // Get angle from Rwc
     cv::Point3f angles = rotation_matrix_to_euler_angles(Rwc);
     float angle1 = angles.z + 90;
@@ -158,7 +157,7 @@ bool Navigator::rotate_to_destination_angle(const cv::Point3f &location,
     while (ang_diff <= -180)
         ang_diff += 360;
 
-    if (abs(ang_diff) < 8)
+    if (abs(ang_diff) < 6)
         return true;
 
     if (abs(ang_diff) > 30)
@@ -291,48 +290,6 @@ void Navigator::update_plane_of_flight()
     explorer->set_plane_of_flight(pcl::PointXYZ(p1.x, p1.y, p1.z),
                                   pcl::PointXYZ(p2.x, p2.y, p2.z),
                                   pcl::PointXYZ(p3.x, p3.y, p3.z));
-}
-
-void Navigator::get_point_of_interest(
-    const std::vector<Eigen::Matrix<double, 3, 1>> &points,
-    std::promise<pcl::PointXYZ> pof_promise, std::size_t last_point,
-    const cv::Point3f &last_location)
-{
-    auto map_filename = "current_map" + std::to_string(last_point) + ".xyz";
-    auto start_filename = "start" + std::to_string(last_point) + ".xyz";
-
-    Auxilary::save_points_to_file(points, map_filename);
-    Auxilary::save_points_to_file({last_location}, start_filename);
-
-    auto out_filename = "out" + std::to_string(last_point) + ".xyz";
-    auto run_cmd = "python3 DelaunayGreedySearch.py " + map_filename + " " +
-                   start_filename + " > " + out_filename;
-
-    std::system(run_cmd.c_str());
-
-    std::ifstream out_file(out_filename);
-    std::string res_line;
-    std::getline(out_file, res_line);
-
-    size_t pos = 0;
-    std::string token;
-    pcl::PointXYZ point_of_interest;
-    int index = 0;
-    while ((pos = res_line.find(" ")) != std::string::npos)
-    {
-        token = res_line.substr(0, pos);
-        float token_f = std::stof(token);
-        if (index == 0)
-            point_of_interest.x = token_f;
-        else if (index == 1)
-            point_of_interest.y = token_f;
-        else if (index == 2)
-            point_of_interest.z = token_f;
-        ++index;
-        res_line.erase(0, pos + 1);
-    }
-
-    pof_promise.set_value(point_of_interest);
 }
 
 void deleteFile(const std::string &filePath)
@@ -531,7 +488,7 @@ void Navigator::get_features_by_rotating()
     {
         ++current_rotate;
 
-        if ((times_rotate - current_rotate) % 5 == 0)
+        if ((times_rotate - current_rotate) % 3 == 0)
             std::cout << "scan movments left: "
                       << (times_rotate - current_rotate) << std::endl;
 
