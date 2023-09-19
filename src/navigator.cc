@@ -187,24 +187,24 @@ bool Navigator::rotate_to_destination_angle(const cv::Point3f &location,
         return false;
     }
 
+    drone->send_command("rc 0 0 0 0", false);
+    std::this_thread::sleep_for(2s);
+
+    if (ang_diff > 0)
+    {
+        drone->send_command("cw " + std::to_string(static_cast<int>(ang_diff)));
+        std::this_thread::sleep_for(2s);
+    }
     else
     {
-        drone->send_command("rc 0 0 0 0", false);
-        std::this_thread::sleep_for(1s);
-
-        if (ang_diff > 0)
-        {
-            drone->send_command("cw " +
-                                std::to_string(static_cast<int>(ang_diff) + 2));
-        }
-        else
-        {
-            drone->send_command(
-                "ccw " + std::to_string(static_cast<int>(-ang_diff) + 2));
-        }
-        pose_updated = false;
-        return false;
+        drone->send_command("ccw " +
+                            std::to_string(static_cast<int>(-ang_diff)));
+        std::this_thread::sleep_for(2s);
     }
+    pose_updated = false;
+    drone->send_command("rc 0 0 0 0", false);
+    std::this_thread::sleep_for(1s);
+    return false;
 }
 
 cv::Point3f Navigator::get_last_location()
