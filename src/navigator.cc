@@ -326,9 +326,16 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
 
     std::vector<pcl::PointXYZ> path_to_the_unknown;
     Eigen::Vector3d goal_exit_point;
+    int counter = 1;
 
     while (path_to_the_unknown.empty())
     {
+        if (counter % 4 == 0)
+        {
+            drone->send_command("down 20");
+            std::this_thread::sleep_for(5s);
+        }
+
         const auto aligned_points = get_aligned_points_from_slam(
             SLAM->GetAtlas()->GetCurrentMap()->GetAllMapPoints(), R_align,
             mu_align);
@@ -380,6 +387,7 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
 
         path_to_the_unknown = path_future.get();
         get_path_to_unknown.join();
+        counter++;
     }
 
     Auxilary::save_points_to_file(
