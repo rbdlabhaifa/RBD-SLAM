@@ -102,11 +102,11 @@ int main(int argc, char *argv[])
 
     streamer.start_stream();
     navigator.start_navigation();
-
+    int scan_counter = 1;
     while (true)
     {
         int points_reached_counter = 1;
-        const auto path = navigator.get_path_to_the_unknown(3);
+        const auto path = navigator.get_path_to_the_unknown(7);
         std::for_each(path.begin(), path.end(),
                       [&](const auto &p)
                       {
@@ -116,10 +116,27 @@ int main(int argc, char *argv[])
                                     << path.size() << std::endl;
                           points_reached_counter++;
                       });
-        // drone->send_command("down 20");
         std::this_thread::sleep_for(2s);
-        // navigator.reset_map_w_context();
+        if (scan_counter == 1)
+        {
+            navigator.drone->send_command("forward 110");
+            std::this_thread::sleep_for(5s);
+        }
+
         navigator.get_features_by_rotating();
+        // move left
+        if (scan_counter++ == 1)
+        {
+            drone->send_command("rc 0 0 18 -15", false);
+            std::this_thread::sleep_for(4s);
+            drone->send_command("rc 0 0 -18 -15", false);
+            std::this_thread::sleep_for(4s);
+            drone->send_command("rc 0 0 0 0", false);
+            std::this_thread::sleep_for(1s);
+
+            navigator.drone->send_command("forward 180");
+            std::this_thread::sleep_for(5s);
+        }
     }
 
     std::cout << "Reached all destinations" << std::endl;

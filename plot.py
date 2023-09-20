@@ -58,7 +58,7 @@ def clean_data(data_points, zscore_threshold=3):
 
 
 def main():
-    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/19.09.23/19:55:10"
+    scan_dir = "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/20.09.23/12:55:27"
     fig_data = []
 
     scan_1 = True

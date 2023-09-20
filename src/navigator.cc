@@ -1,6 +1,7 @@
 #include "navigator.hpp"
 
 #include <Eigen/src/Core/Matrix.h>
+#include <array>
 #include <opencv2/core/core_c.h>
 
 #include <algorithm>
@@ -149,7 +150,7 @@ bool Navigator::rotate_to_destination_angle(const cv::Point3f &location,
 
     cv::Point2f vec1(destination.x - location.x, destination.y - location.y);
     // Get angle from vec1
-    float angle2 = static_cast<float>(atan2(vec1.y, vec1.x) * 180 / M_PI);
+    auto angle2 = static_cast<float>(atan2(vec1.y, vec1.x) * 180 / M_PI);
 
     float ang_diff = angle1 - angle2;
     while (ang_diff > 180)
@@ -160,6 +161,7 @@ bool Navigator::rotate_to_destination_angle(const cv::Point3f &location,
     if (abs(ang_diff) < 6)
         return true;
 
+    std::cout << "angle to next point: " << ang_diff << std::endl;
     if (abs(ang_diff) > 30)
     {
         drone->send_command("rc 0 0 0 0", false);
@@ -229,7 +231,7 @@ cv::Point3f Navigator::get_last_location()
 
     Rwc = aligned_pose.rowRange(0, 3).colRange(0, 3).t();
     const cv::Mat &tcw = aligned_pose.rowRange(0, 3).col(3);
-    return {cv::Mat(-Rwc * tcw)};
+    return {cv::Mat{-Rwc * tcw}};
 }
 
 bool Navigator::goto_next_destination()
@@ -245,12 +247,16 @@ bool Navigator::goto_next_destination()
 void Navigator::goto_point(const cv::Point3f &p)
 {
     cv::Point3f last_location;
+    float dist_from_point = -1;
 
-    while (get_distance_to_destination(last_location = get_last_location(), p) >
-           std::pow(0.15, 2))
+    while ((dist_from_point = get_distance_to_destination(
+                last_location = get_last_location(), p)) > std::pow(0.15, 2))
     {
         if (!rotate_to_destination_angle(last_location, p))
             continue;
+
+        std::cout << "dist from point (in M+/-) = " << dist_from_point * 2
+                  << std::endl;
 
         std::this_thread::sleep_for(2s);
         if (pose_updated)
@@ -281,9 +287,6 @@ void Navigator::update_plane_of_flight()
     const auto p3 = get_last_location();
     pose_updated = false;
 
-    drone->send_command("speed 10");
-    std::this_thread::sleep_for(2s);
-
     Auxilary::save_points_to_file(std::vector<cv::Point3f>{p1, p2, p3},
                                   data_dir / "plane_points.xyz");
 
@@ -307,7 +310,7 @@ void Navigator::reset_map_w_context()
     std::vector<ORB_SLAM3::MapPoint *> tracked_points =
         SLAM->GetTrackedMapPoints();
     ORB_SLAM3::Map *current_map = SLAM->GetAtlas()->GetCurrentMap();
-    for (auto point : SLAM->GetAtlas()->GetAllMapPoints())
+    for (auto *point : SLAM->GetAtlas()->GetAllMapPoints())
     {
         current_map->EraseMapPoint(point);
     }
@@ -354,7 +357,10 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
                                      last_location.z};
         // set known points
         auto [k_p1, k_p2, k_p3] = explorer->get_plane_of_flight();
+
         float used_scalar = (scan_num == 0) ? dist_scalar_0 : dist_scalar_1;
+        std::cout << "goal finder distance scalar = " << used_scalar
+                  << std::endl;
 
         goal_exit_point = goal_finder::Find_Goal(transformed_vec, vec_last_loc,
                                                  k_p1, k_p2, k_p3, used_scalar);
@@ -376,10 +382,10 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
             },
             std::move(path_promise));
 
-        do
+        while (path_future.wait_for(2s) != std::future_status::ready)
         {
             drone->send_command("rc 0 0 0 0", false);
-        } while (path_future.wait_for(2s) != std::future_status::ready);
+        }
 
         path_to_the_unknown = path_future.get();
         get_path_to_unknown.join();
@@ -419,10 +425,8 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
 
     // Get the current directory
     char currentDir[FILENAME_MAX];
-    if (!getcwd(currentDir, sizeof(currentDir)))
-    {
+    if (getcwd(currentDir, sizeof(currentDir)) == nullptr)
         std::cerr << "Error getting current directory!" << std::endl;
-    }
 
     // Get the parent directory
     std::string parentDir = currentDir;
@@ -437,19 +441,19 @@ Navigator::get_path_to_the_unknown(std::size_t path_size)
 
     // Copy the files to the current directory
     std::string mvTreeCommand =
-        "mv \"" + treeFileName + "\" \"" + std::string(data_dir) + "/" +
+        "mv \"" + treeFileName + "\" \"" + std::string{data_dir} + "/" +
         std::to_string(paths_created) + "_" + treeFileName + "\"";
     std::string mvStartCommand =
-        "mv \"" + startFileName + "\" \"" + std::string(data_dir) + "/" +
+        "mv \"" + startFileName + "\" \"" + std::string{data_dir} + "/" +
         std::to_string(paths_created) + "_" + startFileName + "\"";
     std::string mvEndCommand =
-        "mv \"" + endFileName + "\" \"" + std::string(data_dir) + "/" +
+        "mv \"" + endFileName + "\" \"" + std::string{data_dir} + "/" +
         std::to_string(paths_created) + "_" + endFileName + "\"";
     std::string mvPathsCommand =
-        "mv \"" + pathsFileName + "\" \"" + std::string(data_dir) + "/" +
+        "mv \"" + pathsFileName + "\" \"" + std::string{data_dir} + "/" +
         std::to_string(paths_created) + "_" + pathsFileName + "\"";
     std::string mvInitialPathsCommand =
-        "mv \"" + initial_path_NAME + "\" \"" + std::string(data_dir) + "/" +
+        "mv \"" + initial_path_NAME + "\" \"" + std::string{data_dir} + "/" +
         std::to_string(paths_created) + "_" + initial_path_NAME + "\"";
 
     int treemvResult = system(mvTreeCommand.c_str());

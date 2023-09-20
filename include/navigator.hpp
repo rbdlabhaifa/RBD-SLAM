@@ -29,7 +29,6 @@
 
 class Navigator
 {
-    std::shared_ptr<SomeDrone> drone;
     std::vector<cv::Point3f> destinations;
     boost::lockfree::spsc_queue<std::array<uchar, 640 * 480 * 3>> &frame_queue;
 
@@ -103,10 +102,11 @@ class Navigator
 
     int scan_num = 0;
     const float dist_scalar_0 = 1.58;
-    const float dist_scalar_1 = 1.4;
+    const float dist_scalar_1 = 1.25;
 
   public:
     std::shared_ptr<Explorer> explorer;
+    std::shared_ptr<SomeDrone> drone;
 
     Navigator(const Navigator &) = delete;
     Navigator(Navigator &&) = delete;
