@@ -1,0 +1,9 @@
+{
+    "Vocabulary_Path": "/ABSOLUTE/PATH/TO/RBD-SLAM/Configuration/Vocabulary/ORBvoc.txt",
+    "calibration_path": "/ABSOLUTE/PATH/TO/RBD-SLAM/Configuration/CalibrationFiles/tello_9F5EC2_640.yaml",
+    "map_path": "--use-drone",
+    "data_save_dir": "/ABSOLUTE/PATH/TO/RBD-SLAM/scans",
+    "fake_drone": false,
+    "use_webcam": true,
+    "offline_mode": false
+}

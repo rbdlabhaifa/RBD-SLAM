@@ -93,44 +93,44 @@ shapesVis(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud)
 }
 
 int main(int argc, char **argv)
-{ // TODO : Redo the point Enter !!!
+{
+    if (argc < 5)
+    {
+        std::cerr << "Usage: " << argv[0]
+                  << " <map.pcd> <plane_points.pcd> <start.pcd> <radius>"
+                  << std::endl;
+        return 1;
+    }
+
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(
-        new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out(
         new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr plane(
         new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr start_point(
         new pcl::PointCloud<pcl::PointXYZ>);
 
-    // /home/ido/rbd/rbd-slam/RBD-SLAM/scans/12.09.23
-    // 20:33:48/pcd_s/aligned_points.pcd
-    std::string base_dir =
-        "/home/ido/rbd/rbd-slam/RBD-SLAM/scans/13.09.23/14:19:16/pcd_s";
+    const std::string map_file = argv[1];
+    const std::string plane_file = argv[2];
+    const std::string start_file = argv[3];
+    const float scale_factor = std::stof(argv[4]);
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(base_dir + "/aligned_points.pcd",
-                                            *cloud) == -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(map_file, *cloud) == -1)
     {
-        PCL_ERROR("Couldn't read file aligned_points.pcd \n");
+        PCL_ERROR("Couldn't read file %s\n", map_file.c_str());
         return -1;
     }
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(base_dir + "/plane_points.pcd",
-                                            *plane) == -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(plane_file, *plane) == -1)
     {
-        PCL_ERROR("Couldn't read file plane_points.pcd \n");
+        PCL_ERROR("Couldn't read file %s\n", plane_file.c_str());
         return -1;
     }
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(base_dir + "/1_start.pcd",
-                                            *start_point) ==
-        -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(start_file, *start_point) == -1)
     {
-        PCL_ERROR("Couldn't read file test_pcd.pcd \n");
+        PCL_ERROR("Couldn't read file %s\n", start_file.c_str());
         return -1;
     }
-
-    const float scale_factor = std::stof("0.03");
 
     Explorer explorer(cloud);
     explorer.set_plane_of_flight((*plane)[0], (*plane)[1], (*plane)[2]);

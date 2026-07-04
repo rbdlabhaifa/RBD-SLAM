@@ -70,8 +70,19 @@ read_drone_destinations(const std::filesystem::path &destinations_file_path)
 
 int main(int argc, char *argv[])
 {
+    std::filesystem::path config_path =
+        std::filesystem::current_path().parent_path() / "config.json";
+    if (argc > 1)
+        config_path = argv[1];
 
-    std::ifstream programData("/home/ido/rbd/rbd-slam/RBD-SLAM/config.json");
+    std::ifstream programData(config_path);
+    if (!programData.good())
+    {
+        std::cerr << "Failed to open config: " << config_path << std::endl;
+        std::cerr << "Copy config.json.example to config.json and edit paths."
+                  << std::endl;
+        return 1;
+    }
     nlohmann::json data;
     programData >> data;
     programData.close();

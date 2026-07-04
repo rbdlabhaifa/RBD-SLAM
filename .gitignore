@@ -4,6 +4,7 @@ lib/
 eigen-3.3.9/
 Configuration/
 deps/
+config.json
 .vscode/settings.json
 scans/
 good_scans/
